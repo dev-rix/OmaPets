@@ -42,6 +42,8 @@ BarWidget {
   property double overrideUntil: 0
   property int currentFrame: 0
   property int imageRevision: 0
+  property bool petPickerOpen: false
+  property var availablePets: []
 
   readonly property real petScale: Number(setting("scale", 0.9))
   readonly property int frameInterval: Math.max(60, Number(setting("frameIntervalMs", 140)))
@@ -76,6 +78,39 @@ BarWidget {
     if (value !== "" && value.indexOf("/") < 0)
       return petsHome + "/" + value
     return value
+  }
+
+  function refreshAvailablePets() {
+    if (!petScanner.running) petScanner.running = true
+  }
+
+  function close() { petPickerOpen = false }
+
+  function parseAvailablePets(output) {
+    var pets = [{ id: "", name: "Ponyta (bundled)" }]
+    var lines = String(output || "").trim().split("\n")
+    for (var index = 0; index < lines.length; index++) {
+      if (lines[index] === "") continue
+      var fields = lines[index].split("\t")
+      var id = String(fields.shift() || "").trim()
+      if (id === "") continue
+      pets.push({ id: id, name: String(fields.join(" ") || id).trim() })
+    }
+    availablePets = pets
+  }
+
+  function selectPet(id) {
+    var selectedId = String(id || "")
+    var entry = { id: root.moduleName }
+    for (var key in root.settings)
+      if (key !== "id") entry[key] = root.settings[key]
+    entry.petPath = selectedId
+
+    root.settings = entry
+    if (root.bar && root.bar.shell
+        && typeof root.bar.shell.updateEntryInline === "function")
+      root.bar.shell.updateEntryInline(root.moduleName, entry)
+    petPickerOpen = false
   }
 
   function filePath(url) {
@@ -181,6 +216,25 @@ BarWidget {
     }
   }
 
+  Process {
+    id: petScanner
+    running: false
+    command: ["sh", "-c",
+      "pets=$1; [ -d \"$pets\" ] || exit 0; "
+      + "find \"$pets\" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\\n' 2>/dev/null "
+      + "| sort | while IFS= read -r dir; do "
+      + "id=${dir##*/}; sheet=$(jq -r '.spritesheetPath // empty' \"$dir/pet.json\" 2>/dev/null); "
+      + "[ -n \"$sheet\" ] && [ -f \"$dir/$sheet\" ] || continue; "
+      + "name=$(jq -r '.displayName // .id // empty' \"$dir/pet.json\" 2>/dev/null | tr '\\t\\r\\n' '   '); "
+      + "[ -n \"$name\" ] || name=$id; printf '%s\\t%s\\n' \"$id\" \"$name\"; done",
+      "omarpets-scan", root.petsHome]
+
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.parseAvailablePets(text)
+    }
+  }
+
   IpcHandler {
     target: "wei.omarpets"
 
@@ -270,9 +324,93 @@ BarWidget {
       acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
       hoverEnabled: true
       onClicked: function(mouse) {
-        if (mouse.button === Qt.RightButton) root.setActivity("error", "Test error animation", 2500)
+        if (mouse.button === Qt.RightButton) {
+          root.refreshAvailablePets()
+          root.petPickerOpen = !root.petPickerOpen
+        }
         else if (mouse.button === Qt.MiddleButton) root.setActivity("success", "Test success animation", 2500)
         else root.setActivity("working", "Test working animation", 1800)
+      }
+    }
+  }
+
+  PopupCard {
+    id: petPicker
+    anchorItem: root
+    owner: root
+    bar: root.bar
+    open: root.petPickerOpen
+    contentWidth: petPicker.fittedContentWidth(Style.space(240))
+    contentHeight: petPicker.fittedContentHeight(petList.implicitHeight)
+
+    Column {
+      id: petList
+      anchors.fill: parent
+      spacing: Style.space(4)
+
+      Text {
+        text: "Choose pet"
+        color: root.bar.foreground
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.body
+        font.bold: true
+        bottomPadding: Style.space(4)
+      }
+
+      Text {
+        visible: petScanner.running
+        text: "Looking for pets…"
+        color: Qt.darker(root.bar.foreground, 1.4)
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Repeater {
+        model: root.availablePets
+
+        delegate: Rectangle {
+          id: petRow
+          required property var modelData
+          width: petList.width
+          height: Style.space(32)
+          radius: Style.spacing.labelGap
+          color: petMouse.containsMouse
+            ? Style.normalFillFor(root.bar.foreground, Color.accent)
+            : "transparent"
+
+          readonly property bool selected: String(root.configuredPetPath) === String(modelData.id)
+
+          Text {
+            anchors.left: parent.left
+            anchors.right: checkmark.left
+            anchors.leftMargin: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            text: petRow.modelData.name
+            color: root.bar.foreground
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.body
+            elide: Text.ElideRight
+          }
+
+          Text {
+            id: checkmark
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            text: petRow.selected ? "✓" : ""
+            color: root.bar.foreground
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.body
+          }
+
+          MouseArea {
+            id: petMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.selectPet(petRow.modelData.id)
+          }
+        }
       }
     }
   }

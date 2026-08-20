@@ -44,7 +44,9 @@ For exact state reporting from any agent or hook, run the bundled controller:
 ~/.config/omarchy/plugins/wei.omarpets/bin/omarpetsctl idle
 ```
 
-Left-, middle-, and right-click the pet to preview working, success, and error animations. Hover for the current state and detail.
+Right-click the pet to list installed pets and switch between them. The choice
+is saved in the bar configuration. Left-click previews working and middle-click
+previews success. Hover for the current state and detail.
 
 ## Use another Codex pet
 
@@ -54,6 +56,8 @@ Install a pet into `~/.config/omarpets/pets/<pet-id>` and set the plugin's
 ```bash
 omarchy bar set wei.omarpets petPath my-pet
 ```
+
+Alternatively, right-click the pet in the bar and choose it from the list.
 
 You can also set `petPath` to an absolute path or a path beginning with `~/`.
 The folder must contain `pet.json` and the PNG or WebP named by its
