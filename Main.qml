@@ -63,9 +63,9 @@ BarWidget {
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
   readonly property bool tooltipHovered: hover.hovered
-  readonly property string statusTooltipText: petName
-    + (detectedAgent === "" ? "" : " · " + agentLabel(detectedAgent))
-    + " · " + (stateLabels[activityState] || activityState)
+  readonly property string statusTooltipText:
+    (detectedAgent === "" ? "" : agentLabel(detectedAgent) + " · ")
+    + (stateLabels[activityState] || activityState)
     + (activityDetail === "" ? "" : "\n" + activityDetail)
 
   function setting(key, fallback) {

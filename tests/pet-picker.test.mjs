@@ -14,6 +14,12 @@ assert.doesNotMatch(qml, /command:\s*\["sh",\s*"-c"/)
 
 assert.doesNotMatch(
   qml,
+  /statusTooltipText:\s*petName/,
+  "the status tooltip must not include the selected pet name",
+)
+
+assert.doesNotMatch(
+  qml,
   /assets\/ponyta|Ponyta \(bundled\)/,
   "the plugin must not depend on a bundled pet",
 )
