@@ -45,7 +45,7 @@ BarWidget {
   property bool petPickerOpen: false
   property var availablePets: []
 
-  readonly property real petScale: Number(setting("scale", 0.9))
+  readonly property real petScale: Number(setting("scale", 0.8))
   readonly property int frameInterval: Math.max(60, Number(setting("frameIntervalMs", 140)))
   readonly property bool autoDetect: setting("autoDetect", true) !== false
   readonly property int activeWindowSec: Math.max(2, Number(setting("activeWindowSec", 8)))
@@ -301,17 +301,20 @@ BarWidget {
   implicitHeight: barSize
 
   Item {
-    anchors.fill: parent
+    id: frameViewport
+    readonly property real frameHeight: root.height * root.petScale
+    readonly property real frameWidth: frameHeight * 192 / 208
+    width: frameWidth
+    height: frameHeight
+    anchors.centerIn: parent
     clip: true
 
     Image {
       id: atlas
-      readonly property real frameHeight: parent.height * root.petScale
-      readonly property real frameWidth: frameHeight * 192 / 208
-      width: frameWidth * 8
-      height: frameHeight * 9
-      x: (parent.width - frameWidth) / 2 - root.currentFrame * frameWidth
-      y: (parent.height - frameHeight) / 2 - root.stateRows[root.activityState] * frameHeight
+      width: frameViewport.frameWidth * 8
+      height: frameViewport.frameHeight * 9
+      x: -root.currentFrame * frameViewport.frameWidth
+      y: -root.stateRows[root.activityState] * frameViewport.frameHeight
       source: root.spritesheetUrl
       cache: false
       smooth: false
