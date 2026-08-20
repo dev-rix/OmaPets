@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "wei.omarpets",
   "name": "OmarPets",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "OmarPets contributors",
   "license": "MIT",
   "description": "An animated Codex-compatible pet that reflects coding-agent activity in the Omarchy top bar.",
