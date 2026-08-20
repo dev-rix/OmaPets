@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs"
 
 const qml = readFileSync(new URL("../Main.qml", import.meta.url), "utf8")
 
+assert.doesNotMatch(
+  qml,
+  /assets\/ponyta|Ponyta \(bundled\)/,
+  "the plugin must not depend on a bundled pet",
+)
+
 assert.match(
   qml,
   /KeyboardPanel\s*\{\s*id:\s*petPicker[\s\S]*?GridView\s*\{[\s\S]*?model:\s*root\.availablePets/,
@@ -31,6 +37,18 @@ assert.match(
   qml,
   /contentHeight:\s*Style\.space\(320\)/,
   "the panel must use a fixed 320-pixel height",
+)
+
+assert.match(
+  qml,
+  /No pets installed yet[\s\S]*?How to download pets/,
+  "an empty pets directory must show download instructions",
+)
+
+assert.match(
+  qml,
+  /command:\s*\["xdg-open",\s*"https:\/\/github\.com\/yesmeck\/OmarPets#install-from-petdex"\]/,
+  "the download instructions must link to the README",
 )
 
 assert.match(

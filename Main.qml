@@ -25,8 +25,8 @@ BarWidget {
     "success": "Agent finished",
     "error": "Agent failed"
   })
-  // Codex pet packages do not declare per-row frame counts. Ponyta uses six
-  // frames for its normal loops and all eight for failure.
+  // Codex pet packages do not declare per-row frame counts. Normal loops use
+  // six frames and failure uses all eight atlas columns.
   readonly property var stateFrames: ({
     "idle": 6,
     "working": 6,
@@ -43,6 +43,7 @@ BarWidget {
   property int currentFrame: 0
   property int imageRevision: 0
   property bool petPickerOpen: false
+  property bool petAvailable: false
   property var availablePets: []
 
   readonly property real petScale: Number(setting("scale", 0.8))
@@ -57,9 +58,8 @@ BarWidget {
   readonly property string petsHome: home + "/.config/omarpets/pets"
   readonly property string resolvedPetPath: resolvePetPath(configuredPetPath)
   readonly property url petManifestUrl: configuredPetPath === "" || resolvedPetPath === ""
-    ? Qt.resolvedUrl("assets/ponyta/pet.json")
-    : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
-  property string petName: "Ponyta"
+    ? "" : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
+  property string petName: "No pet installed"
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
 
@@ -95,11 +95,7 @@ BarWidget {
   }
 
   function parseAvailablePets(output) {
-    var pets = [{
-      id: "",
-      name: "Ponyta (bundled)",
-      spritesheet: "file://" + previewHome + "/ponyta.png"
-    }]
+    var pets = []
     var lines = String(output || "").trim().split("\n")
     for (var index = 0; index < lines.length; index++) {
       if (lines[index] === "") continue
@@ -125,6 +121,8 @@ BarWidget {
       if (key !== "id") entry[key] = root.settings[key]
     entry.petPath = selectedId
 
+    petAvailable = false
+    spritesheetUrl = ""
     root.settings = entry
     if (root.bar && root.bar.shell
         && typeof root.bar.shell.updateEntryInline === "function")
@@ -198,8 +196,13 @@ BarWidget {
     id: petManifest
     path: root.petManifestUrl
     watchChanges: true
-    printErrors: true
+    printErrors: false
     onFileChanged: reload()
+    onLoadFailed: {
+      root.petAvailable = false
+      root.petName = "No pet installed"
+      root.spritesheetUrl = ""
+    }
     onLoaded: {
       try {
         var pet = JSON.parse(String(text() || "{}"))
@@ -210,8 +213,11 @@ BarWidget {
         var manifestUrl = String(root.petManifestUrl)
         var slash = manifestUrl.lastIndexOf("/")
         root.loadSpritesheet(manifestUrl.slice(0, slash + 1) + sheet)
+        root.petAvailable = true
         root.imageRevision++
       } catch (error) {
+        root.petAvailable = false
+        root.spritesheetUrl = ""
         console.warn("omarpets: invalid pet manifest", error)
       }
     }
@@ -238,10 +244,7 @@ BarWidget {
     id: petScanner
     running: false
     command: ["sh", "-c",
-      "pets=$1; previews=$2; bundled=$3; mkdir -p \"$previews\" || exit 1; "
-      + "bundled_preview=\"$previews/ponyta.png\"; "
-      + "if [ ! -f \"$bundled_preview\" ] || [ \"$bundled\" -nt \"$bundled_preview\" ]; then "
-      + "magick \"$bundled\" \"$bundled_preview\" || exit 1; fi; "
+      "pets=$1; previews=$2; mkdir -p \"$previews\" || exit 1; "
       + "[ -d \"$pets\" ] || exit 0; "
       + "find \"$pets\" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\\n' 2>/dev/null "
       + "| sort | while IFS= read -r dir; do "
@@ -252,8 +255,7 @@ BarWidget {
       + "magick \"$dir/$sheet\" \"$preview\" || continue; fi; "
       + "name=$(jq -r '.displayName // .id // empty' \"$dir/pet.json\" 2>/dev/null | tr '\\t\\r\\n' '   '); "
       + "[ -n \"$name\" ] || name=$id; printf '%s\\t%s\\t%s\\n' \"$id\" \"$name\" \"$sheet\"; done",
-      "omarpets-scan", root.petsHome, root.previewHome,
-      root.filePath(Qt.resolvedUrl("assets/ponyta/spritesheet.webp"))]
+      "omarpets-scan", root.petsHome, root.previewHome]
 
     stdout: StdioCollector {
       waitForEnd: true
@@ -271,6 +273,12 @@ BarWidget {
     function error(detail: string): void { root.setActivity("error", detail, 8000) }
     function refresh(): void { root.reloadPet() }
     function refreshPets(): void { root.refreshAvailablePets() }
+  }
+
+  Process {
+    id: readmeOpener
+    running: false
+    command: ["xdg-open", "https://github.com/yesmeck/OmarPets#install-from-petdex"]
   }
 
   Process {
@@ -347,6 +355,16 @@ BarWidget {
       smooth: false
       mipmap: false
       asynchronous: true
+      visible: root.petAvailable
+    }
+
+    Text {
+      anchors.centerIn: parent
+      visible: !root.petAvailable
+      text: "󰄛"
+      color: root.bar.foreground
+      font.family: root.bar.fontFamily
+      font.pixelSize: Style.font.icon
     }
 
     MouseArea {
@@ -404,6 +422,7 @@ BarWidget {
           policy: ScrollBar.AsNeeded
         }
         model: root.availablePets
+        visible: root.availablePets.length > 0
 
         delegate: Button {
           id: petTile
@@ -452,6 +471,33 @@ BarWidget {
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
           }
+        }
+      }
+
+      Column {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: petPickerTitle.bottom
+        anchors.topMargin: Style.space(36)
+        spacing: Style.spacing.md
+        visible: !petScanner.running && root.availablePets.length === 0
+
+        Text {
+          width: parent.width
+          text: "No pets installed yet. Download a pet from Petdex to get started."
+          color: root.bar.foreground
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+          horizontalAlignment: Text.AlignHCenter
+          wrapMode: Text.WordWrap
+        }
+
+        Button {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "How to download pets"
+          bordered: true
+          focusable: true
+          onClicked: if (!readmeOpener.running) readmeOpener.running = true
         }
       }
     }

@@ -1,6 +1,6 @@
 # OmarPets
 
-OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a live coding-agent status indicator. It includes Ponyta and supports the standard v1 (`1536x1872`) and v2 (`1536x2288`) sprite layouts.
+OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a live coding-agent status indicator. It supports the standard v1 (`1536x1872`) and v2 (`1536x2288`) sprite layouts. Pets are installed separately and no artwork is bundled with the plugin.
 
 | Agent state | Pet animation row |
 | --- | --- |
@@ -48,6 +48,9 @@ Right-click the pet to list installed pets and switch between them. The choice
 is saved in the bar configuration. Left-click previews working and middle-click
 previews success. Hover for the current state and detail.
 
+Until a pet is installed and selected, the bar shows a placeholder. Right-click
+it to open the pet panel and follow the download link.
+
 ## Use another Codex pet
 
 Install a pet into `~/.config/omarpets/pets/<pet-id>` and set the plugin's
@@ -91,7 +94,3 @@ omarchy bar set wei.omarpets scale 1.5 --json
 omarchy bar set wei.omarpets frameIntervalMs 120 --json
 omarchy bar set wei.omarpets autoDetect false --json
 ```
-
-## Ponyta artwork and license
-
-The bundled Ponyta spritesheet comes from [Codex PokéPets](https://github.com/dnnyngyen/codex-pokepets), derived from Pokémon Black & White artwork. Pokémon imagery is © Nintendo / Game Freak / Creatures Inc. and is included only for personal, non-commercial fan use. It is not covered by this plugin's MIT code license. See [NOTICE.md](NOTICE.md).
