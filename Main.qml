@@ -42,7 +42,7 @@ BarWidget {
   property int currentFrame: 0
   property int imageRevision: 0
 
-  readonly property real petScale: Number(setting("scale", 1.35))
+  readonly property real petScale: Number(setting("scale", 0.9))
   readonly property int frameInterval: Math.max(60, Number(setting("frameIntervalMs", 140)))
   readonly property bool autoDetect: setting("autoDetect", true) !== false
   readonly property int activeWindowSec: Math.max(2, Number(setting("activeWindowSec", 8)))
@@ -197,7 +197,7 @@ BarWidget {
   }
 
   implicitWidth: Math.round(38 * petScale)
-  implicitHeight: bar ? bar.height : 40
+  implicitHeight: barSize
 
   Item {
     anchors.fill: parent
