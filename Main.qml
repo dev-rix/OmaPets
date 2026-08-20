@@ -62,6 +62,11 @@ BarWidget {
   property string petName: "No pet installed"
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
+  readonly property bool tooltipHovered: hover.hovered
+  readonly property string statusTooltipText: petName
+    + (detectedAgent === "" ? "" : " · " + agentLabel(detectedAgent))
+    + " · " + (stateLabels[activityState] || activityState)
+    + (activityDetail === "" ? "" : "\n" + activityDetail)
 
   function setting(key, fallback) {
     return settings && settings[key] !== undefined ? settings[key] : fallback
@@ -503,11 +508,12 @@ BarWidget {
     }
   }
 
-  ToolTip.visible: hover.hovered
-  ToolTip.text: petName
-    + (detectedAgent === "" ? "" : " · " + agentLabel(detectedAgent))
-    + " · " + (stateLabels[activityState] || activityState)
-    + (activityDetail === "" ? "" : "\n" + activityDetail)
-
-  HoverHandler { id: hover }
+  HoverHandler {
+    id: hover
+    onHoveredChanged: {
+      if (!root.bar) return
+      if (hovered) root.bar.showTooltip(root, root.statusTooltipText)
+      else root.bar.hideTooltip(root)
+    }
+  }
 }
