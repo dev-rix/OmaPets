@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "wei.omarpets",
+  "name": "OmarPets",
+  "version": "0.1.0",
+  "author": "OmarPets contributors",
+  "license": "MIT",
+  "description": "An animated Codex-compatible pet that reflects coding-agent activity in the Omarchy top bar.",
+  "kinds": ["bar-widget"],
+  "activation": "on-demand",
+  "entryPoints": {
+    "barWidget": "Main.qml"
+  },
+  "barWidget": {
+    "displayName": "OmarPets",
+    "description": "A Codex-compatible animated pet for idle, working, waiting, success, and error states.",
+    "category": "AI",
+    "aliases": ["pet", "agent-pet", "codex-pet"],
+    "allowMultiple": false,
+    "defaults": {
+      "petPath": "",
+      "scale": 1.35,
+      "frameIntervalMs": 140,
+      "autoDetect": true,
+      "activeWindowSec": 8
+    },
+    "schema": [
+      { "key": "petPath", "type": "path", "label": "Pet folder", "defaultValue": "", "description": "Folder containing a Codex pet.json and spritesheet. Empty uses the bundled Ponyta." },
+      { "key": "scale", "type": "number", "label": "Pet scale", "min": 0.75, "max": 2.5, "step": 0.05, "defaultValue": 1.35 },
+      { "key": "frameIntervalMs", "type": "integer", "label": "Frame interval (ms)", "min": 60, "max": 500, "step": 10, "defaultValue": 140 },
+      { "key": "autoDetect", "type": "boolean", "label": "Detect Codex and Claude", "defaultValue": true },
+      { "key": "activeWindowSec", "type": "integer", "label": "Recent activity window (seconds)", "min": 2, "max": 60, "step": 1, "defaultValue": 8 }
+    ]
+  }
+}
