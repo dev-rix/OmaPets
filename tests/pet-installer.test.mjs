@@ -14,6 +14,10 @@ test("extracts a slug from a Codex Pets hash URL", () => {
   assert.equal(petSlugFromUrl("https://codex-pets.net/#/pets/dario"), "dario")
 })
 
+test("extracts a slug from an OpenPets URL", () => {
+  assert.equal(petSlugFromUrl("https://openpets.dev/pets/player-05-b28eec8e"), "player-05-b28eec8e")
+})
+
 test("rejects non-Petdex and malformed URLs", () => {
   assert.throws(() => petSlugFromUrl("https://example.com/pets/kabi"), /petdex\.dev/)
   assert.throws(() => petSlugFromUrl("https://petdex.dev/pets/kabi/extra"), /must look like/)
@@ -116,4 +120,44 @@ test("downloads a pet from Codex Pets into the OmarPets layout", async () => {
   assert.equal(installed.destination, join(petsDir, "dario"))
   assert.equal(JSON.parse(await readFile(join(petsDir, "dario", "pet.json"), "utf8")).id, "dario")
   assert.deepEqual(await readFile(join(petsDir, "dario", "spritesheet.webp")), Buffer.from([82, 73, 70, 70]))
+})
+
+test("downloads a pet from OpenPets into the OmarPets layout", async () => {
+  const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
+  const searchIndexUrl = "https://test.invalid/catalog/search.json"
+  const searchPageUrl = "https://test.invalid/catalog/search-page-000.json"
+  const catalogPageUrl = "https://test.invalid/catalog/page-002.json"
+  const spritesheetUrl = "https://openpets.dev/pets/player-05-b28eec8e/spritesheet.webp"
+  const responses = new Map([
+    [searchIndexUrl, Response.json({ version: 3, pages: [searchPageUrl] })],
+    [searchPageUrl, Response.json({ version: 3, pets: [{ id: "player-05", catalogPage: 2 }] })],
+    [catalogPageUrl, Response.json({ version: 3, pets: [{
+      id: "player-05",
+      displayName: "醋摆摆",
+      description: "A healer-scholar pet.",
+      spritesheet: spritesheetUrl,
+    }] })],
+    [spritesheetUrl, new Response(new Uint8Array([82, 73, 70, 70]))],
+  ])
+  const fetchImpl = async url => responses.get(String(url))?.clone()
+    || new Response("missing", { status: 404 })
+
+  const installed = await installPet("https://openpets.dev/pets/player-05-b28eec8e", {
+    petsDir,
+    openPetsSearchIndexUrl: searchIndexUrl,
+    openPetsCatalogPageUrl: page => `https://test.invalid/catalog/page-${String(page).padStart(3, "0")}.json`,
+    fetchImpl,
+  })
+
+  assert.equal(installed.destination, join(petsDir, "player-05"))
+  assert.deepEqual(
+    JSON.parse(await readFile(join(petsDir, "player-05", "pet.json"), "utf8")),
+    {
+      id: "player-05",
+      displayName: "醋摆摆",
+      description: "A healer-scholar pet.",
+      spritesheetPath: "spritesheet.webp",
+    },
+  )
+  assert.deepEqual(await readFile(join(petsDir, "player-05", "spritesheet.webp")), Buffer.from([82, 73, 70, 70]))
 })

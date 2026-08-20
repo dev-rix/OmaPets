@@ -4,8 +4,10 @@ import { mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises"
 
 const DEFAULT_MANIFEST_URL = "https://petdex.dev/api/manifest"
 const DEFAULT_CODEX_PETS_API_BASE = "https://codex-pets.net/api/pets"
+const DEFAULT_OPENPETS_SEARCH_INDEX_URL = "https://openpets.dev/pets/catalog.v3/search.json"
 const PETDEX_HOSTS = new Set(["petdex.dev", "www.petdex.dev", "petdex.crafter.run"])
 const CODEX_PETS_HOSTS = new Set(["codex-pets.net", "www.codex-pets.net"])
+const OPENPETS_HOSTS = new Set(["openpets.dev", "www.openpets.dev"])
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 
 function petSourceFromUrl(value) {
@@ -16,10 +18,15 @@ function petSourceFromUrl(value) {
     throw new Error(`Invalid pet URL: ${value}`)
   }
 
-  if (url.protocol !== "https:" || (!PETDEX_HOSTS.has(url.hostname) && !CODEX_PETS_HOSTS.has(url.hostname)))
-    throw new Error("Pet URL must use HTTPS on petdex.dev or codex-pets.net")
+  const supportedHost = PETDEX_HOSTS.has(url.hostname)
+    || CODEX_PETS_HOSTS.has(url.hostname)
+    || OPENPETS_HOSTS.has(url.hostname)
+  if (url.protocol !== "https:" || !supportedHost)
+    throw new Error("Pet URL must use HTTPS on petdex.dev, codex-pets.net, or openpets.dev")
 
-  const provider = CODEX_PETS_HOSTS.has(url.hostname) ? "codex-pets" : "petdex"
+  const provider = CODEX_PETS_HOSTS.has(url.hostname)
+    ? "codex-pets"
+    : OPENPETS_HOSTS.has(url.hostname) ? "openpets" : "petdex"
   const route = provider === "codex-pets" && url.hash
     ? url.hash.replace(/^#\/?/, "/")
     : url.pathname
@@ -29,7 +36,9 @@ function petSourceFromUrl(value) {
   if (!slug || petsIndex + 2 !== parts.length || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
     throw new Error(`Pet URL must look like ${provider === "codex-pets"
       ? "https://codex-pets.net/#/pets/<pet-id>"
-      : "https://petdex.dev/pets/<pet-id>"}`)
+      : provider === "openpets"
+        ? "https://openpets.dev/pets/<pet-page-id>"
+        : "https://petdex.dev/pets/<pet-id>"}`)
 
   return { provider, slug }
 }
@@ -87,6 +96,62 @@ function directorySlug(petId, sourceSlug) {
   return normalized || sourceSlug
 }
 
+async function openPetsMetadata(sourceSlug, options, fetchImpl) {
+  const slugMatch = sourceSlug.match(/^(.+)-[0-9a-f]{8}$/)
+  if (!slugMatch) throw new Error("OpenPets URL must end with its eight-character page fingerprint")
+  const petId = slugMatch[1]
+  const searchIndexUrl = options.openPetsSearchIndexUrl || DEFAULT_OPENPETS_SEARCH_INDEX_URL
+  const searchIndexResponse = await fetchResponse(searchIndexUrl, fetchImpl)
+  const searchIndex = await searchIndexResponse.json()
+  if (searchIndex?.version !== 3 || !Array.isArray(searchIndex.pages))
+    throw new Error("OpenPets returned an invalid search index")
+
+  let catalogPage
+  for (const pageUrl of searchIndex.pages) {
+    const resolvedPageUrl = new URL(String(pageUrl), searchIndexUrl)
+    if (resolvedPageUrl.origin !== new URL(searchIndexUrl).origin)
+      throw new Error("OpenPets search page uses an unexpected host")
+    const response = await fetchResponse(resolvedPageUrl, fetchImpl)
+    const page = await response.json()
+    const match = Array.isArray(page?.pets)
+      ? page.pets.find(candidate => candidate?.id === petId)
+      : undefined
+    if (match) {
+      catalogPage = match.catalogPage
+      break
+    }
+  }
+  if (!Number.isInteger(catalogPage) || catalogPage < 0)
+    throw new Error(`OpenPets pet not found: ${sourceSlug}`)
+
+  const catalogPageUrl = options.openPetsCatalogPageUrl
+    ? options.openPetsCatalogPageUrl(catalogPage)
+    : `https://openpets.dev/pets/catalog.v3/page-${String(catalogPage).padStart(3, "0")}.json`
+  const catalogResponse = await fetchResponse(catalogPageUrl, fetchImpl)
+  const catalog = await catalogResponse.json()
+  const pet = Array.isArray(catalog?.pets)
+    ? catalog.pets.find(candidate => candidate?.id === petId)
+    : undefined
+  if (!pet || !pet.spritesheet) throw new Error(`OpenPets catalog entry is incomplete: ${petId}`)
+
+  const spritesheetUrl = new URL(pet.spritesheet)
+  if (spritesheetUrl.protocol !== "https:"
+      || !OPENPETS_HOSTS.has(spritesheetUrl.hostname)
+      || spritesheetUrl.pathname !== `/pets/${sourceSlug}/spritesheet.webp`
+      || spritesheetUrl.search || spritesheetUrl.hash)
+    throw new Error("OpenPets catalog returned an unexpected spritesheet URL")
+
+  return {
+    petJson: {
+      id: petId,
+      displayName: String(pet.displayName || petId),
+      description: String(pet.description || ""),
+      spritesheetPath: "spritesheet.webp",
+    },
+    spritesheetUrl: spritesheetUrl.toString(),
+  }
+}
+
 export async function installPet(petUrl, options = {}) {
   const { provider, slug } = petSourceFromUrl(petUrl)
   const fetchImpl = options.fetchImpl || globalThis.fetch
@@ -98,7 +163,11 @@ export async function installPet(petUrl, options = {}) {
   let spritesheetUrl
   let inlinePetJson
 
-  if (provider === "codex-pets") {
+  if (provider === "openpets") {
+    const metadata = await openPetsMetadata(slug, options, fetchImpl)
+    inlinePetJson = Buffer.from(`${JSON.stringify(metadata.petJson, null, 2)}\n`)
+    spritesheetUrl = metadata.spritesheetUrl
+  } else if (provider === "codex-pets") {
     const apiBase = String(options.codexPetsApiBase || DEFAULT_CODEX_PETS_API_BASE).replace(/\/$/, "")
     const detailResponse = await fetchResponse(`${apiBase}/${encodeURIComponent(slug)}`, fetchImpl)
     const detail = await detailResponse.json()

@@ -23,12 +23,14 @@ shows a placeholder. Right-click it to open the pet picker.
 
 ## Install a pet
 
-The included Node.js package supports [Petdex](https://petdex.dev/) and
-[Codex Pets](https://codex-pets.net/) URLs:
+The included Node.js package supports [Petdex](https://petdex.dev/),
+[Codex Pets](https://codex-pets.net/), and [OpenPets](https://openpets.dev/)
+URLs:
 
 ```bash
 npx omarpets https://petdex.dev/pets/kabi
 npx omarpets 'https://codex-pets.net/#/pets/dario'
+npx omarpets https://openpets.dev/pets/player-05-b28eec8e
 ```
 
 Quote Codex Pets URLs so the shell preserves the `#` route.

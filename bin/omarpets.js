@@ -9,7 +9,8 @@ const usage = `Usage:
 
 Example:
   omarpets https://petdex.dev/pets/kabi
-  omarpets https://codex-pets.net/#/pets/dario`
+  omarpets https://codex-pets.net/#/pets/dario
+  omarpets https://openpets.dev/pets/player-05-b28eec8e`
 
 function parseArgs(args) {
   const values = [...args]
@@ -29,7 +30,7 @@ function parseArgs(args) {
     }
   }
 
-  if (!petUrl) throw new Error("A Petdex or Codex Pets URL is required")
+  if (!petUrl) throw new Error("A Petdex, Codex Pets, or OpenPets URL is required")
   return { petUrl, petsDir }
 }
 
