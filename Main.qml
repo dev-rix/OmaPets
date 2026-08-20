@@ -248,19 +248,7 @@ BarWidget {
   Process {
     id: petScanner
     running: false
-    command: ["sh", "-c",
-      "pets=$1; previews=$2; mkdir -p \"$previews\" || exit 1; "
-      + "[ -d \"$pets\" ] || exit 0; "
-      + "find \"$pets\" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\\n' 2>/dev/null "
-      + "| sort | while IFS= read -r dir; do "
-      + "id=${dir##*/}; sheet=$(jq -r '.spritesheetPath // empty' \"$dir/pet.json\" 2>/dev/null); "
-      + "[ -n \"$sheet\" ] && [ -f \"$dir/$sheet\" ] || continue; "
-      + "preview=\"$previews/$id.png\"; "
-      + "if [ ! -f \"$preview\" ] || [ \"$dir/$sheet\" -nt \"$preview\" ]; then "
-      + "magick \"$dir/$sheet\" \"$preview\" || continue; fi; "
-      + "name=$(jq -r '.displayName // .id // empty' \"$dir/pet.json\" 2>/dev/null | tr '\\t\\r\\n' '   '); "
-      + "[ -n \"$name\" ] || name=$id; printf '%s\\t%s\\t%s\\n' \"$id\" \"$name\" \"$sheet\"; done",
-      "omarpets-scan", root.petsHome, root.previewHome]
+    command: [root.filePath(Qt.resolvedUrl("bin/scan-pets")), root.petsHome, root.previewHome]
 
     stdout: StdioCollector {
       waitForEnd: true
@@ -289,32 +277,7 @@ BarWidget {
   Process {
     id: detector
     running: false
-    command: ["sh", "-c",
-      "window=$1; home=$2; "
-      + "agent=$(omarchy-default-agent 2>/dev/null); "
-      + "[ -n \"$agent\" ] || { printf ':idle'; exit; }; "
-      + "state_home=${XDG_STATE_HOME:-$home/.local/state}; "
-      + "status_file=\"$state_home/omarchy/omarpets/status.json\"; "
-      + "if [ -f \"$status_file\" ]; then "
-      + "hook_agent=$(jq -r '.agent // empty' \"$status_file\" 2>/dev/null); "
-      + "hook_state=$(jq -r '.state // empty' \"$status_file\" 2>/dev/null); "
-      + "hook_time=$(jq -r '(.updatedAtEpoch | tonumber?) // 0' \"$status_file\" 2>/dev/null); "
-      + "age=$(($(date +%s) - hook_time)); "
-      + "max_age=14400; [ \"$hook_state\" = success ] && max_age=8; "
-      + "if [ \"$hook_agent\" = \"$agent\" ] && [ $age -ge 0 ] && [ $age -le $max_age ]; then "
-      + "printf '%s:%s' \"$agent\" \"$hook_state\"; exit; fi; fi; "
-      + "recent=0; "
-      + "case \"$agent\" in "
-      + "codex) activity_dir=\"${CODEX_HOME:-$home/.codex}/sessions\" ;; "
-      + "claude) activity_dir=\"${CLAUDE_CONFIG_DIR:-$home/.claude}/projects\" ;; "
-      + "*) activity_dir= ;; esac; "
-      + "[ -n \"$activity_dir\" ] && [ -d \"$activity_dir\" ] "
-      + "&& find \"$activity_dir\" -type f -newermt \"$window seconds ago\" -print -quit 2>/dev/null | grep -q . && recent=1; "
-      + "printf '%s:' \"$agent\"; "
-      + "if [ $recent -eq 1 ]; then printf working; "
-      + "elif pgrep -f \"(^|/)$agent( |$)\" >/dev/null 2>&1; then printf waiting; "
-      + "else printf idle; fi",
-      "omarpets-detect", String(root.activeWindowSec), root.home]
+    command: [root.filePath(Qt.resolvedUrl("bin/detect-agent")), String(root.activeWindowSec), root.home]
 
     stdout: StdioCollector {
       waitForEnd: true

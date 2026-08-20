@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+window="${1:?activity window is required}"
+home="${2:?home directory is required}"
+
+agent=$(omarchy-default-agent 2>/dev/null || true)
+if [[ -z "$agent" ]]; then
+  printf ':idle'
+  exit 0
+fi
+
+state_home="${XDG_STATE_HOME:-$home/.local/state}"
+status_file="$state_home/omarchy/omarpets/status.json"
+if [[ -f "$status_file" ]]; then
+  hook_agent=$(jq -r '.agent // empty' "$status_file" 2>/dev/null || true)
+  hook_state=$(jq -r '.state // empty' "$status_file" 2>/dev/null || true)
+  hook_time=$(jq -r '(.updatedAtEpoch | tonumber?) // 0' "$status_file" 2>/dev/null || printf 0)
+  age=$(($(date +%s) - hook_time))
+  max_age=14400
+  [[ "$hook_state" == success ]] && max_age=8
+  if [[ "$hook_agent" == "$agent" && $age -ge 0 && $age -le $max_age ]]; then
+    printf '%s:%s' "$agent" "$hook_state"
+    exit 0
+  fi
+fi
+
+case "$agent" in
+  codex) activity_dir="${CODEX_HOME:-$home/.codex}/sessions" ;;
+  claude) activity_dir="${CLAUDE_CONFIG_DIR:-$home/.claude}/projects" ;;
+  *) activity_dir= ;;
+esac
+
+recent=0
+if [[ -n "$activity_dir" && -d "$activity_dir" ]] \
+    && find "$activity_dir" -type f -newermt "$window seconds ago" -print -quit 2>/dev/null | grep -q .; then
+  recent=1
+fi
+
+printf '%s:' "$agent"
+if [[ $recent -eq 1 ]]; then
+  printf working
+elif pgrep -f "(^|/)$agent( |$)" >/dev/null 2>&1; then
+  printf waiting
+else
+  printf idle
+fi

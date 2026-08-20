@@ -1,7 +1,16 @@
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { readFileSync, statSync } from "node:fs"
 
 const qml = readFileSync(new URL("../Main.qml", import.meta.url), "utf8")
+
+for (const script of ["scan-pets", "detect-agent"]) {
+  const scriptUrl = new URL(`../bin/${script}`, import.meta.url)
+  assert.equal(readFileSync(scriptUrl, "utf8").startsWith("#!/usr/bin/env bash\n"), true)
+  assert.notEqual(statSync(scriptUrl).mode & 0o111, 0, `${script} must be executable`)
+  assert.match(qml, new RegExp(`Qt\\.resolvedUrl\\(\\"bin/${script}\\"\\)`))
+}
+
+assert.doesNotMatch(qml, /command:\s*\["sh",\s*"-c"/)
 
 assert.doesNotMatch(
   qml,
