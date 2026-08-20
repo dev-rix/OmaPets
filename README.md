@@ -2,7 +2,7 @@
 
 OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a live coding-agent status indicator. It supports the standard v1 (`1536x1872`) and v2 (`1536x2288`) sprite layouts. Pets are installed separately and no artwork is bundled with the plugin.
 
-<video src="assets/omarpets.mp4" controls></video>
+https://github.com/user-attachments/assets/7eedba80-3e0c-461e-8922-578c32ce4554
 
 ## Install the plugin
 
