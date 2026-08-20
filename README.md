@@ -10,92 +10,64 @@ OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a
 | Finished | Review |
 | Failed | Failed |
 
-## Install
+## Install the plugin
 
-Install and enable OmarPets, then add its Codex lifecycle hooks:
-
-```bash
-omarchy plugin add https://github.com/yesmeck/omarpets.git --enable --yes && \
-  ~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
-```
-
-This places the widget in the middle section of the bar by default. Codex will
-ask you to trust the installed commands the next time it starts; inspect and
-approve them with `/hooks`.
-
-For a local checkout:
+Install and enable OmarPets:
 
 ```bash
-omarchy plugin add "$(pwd)" --enable --yes && \
-  ~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
+omarchy plugin add https://github.com/yesmeck/omarpets.git --enable --yes
 ```
 
-Automatic detection follows the agent selected by `omarchy-default-agent`. Explicit lifecycle events are the primary status source, recent session activity is the fallback, and process presence is used only when neither is available.
+Pets are installed separately. Until one is installed and selected, the bar
+shows a placeholder. Right-click it to open the pet picker.
 
-The installer adds commands alongside existing hooks without replacing them. Codex will ask you to trust the new commands when it next starts. The hooks report prompt submission, tool activity, permission requests, completion, and session boundaries through a small atomic state file.
+## Install a pet
 
-For exact state reporting from any agent or hook, call the shell IPC handler:
+The included Node.js package supports [Petdex](https://petdex.dev/) and
+[Codex Pets](https://codex-pets.net/) URLs:
 
 ```bash
-omarchy-shell wei.omarpets working "Running tests"
-omarchy-shell wei.omarpets waiting "Approve deployment"
-omarchy-shell wei.omarpets success "Tests passed"
-omarchy-shell wei.omarpets error "Build failed"
-omarchy-shell wei.omarpets idle ""
+npx omarpets https://petdex.dev/pets/kabi
+npx omarpets 'https://codex-pets.net/#/pets/dario'
 ```
+
+Quote Codex Pets URLs so the shell preserves the `#` route.
+
+Pets are installed into `~/.config/omarpets/pets/<pet-id>` and appear in the
+right-click picker. Existing pet folders are never overwritten. Use
+`--dir <path>` to choose another destination.
+
+You can also create a pet folder manually. It must contain `pet.json` and the
+PNG or WebP named by `spritesheetPath`. The first nine atlas rows must follow
+the Codex pet state contract. WebP sheets require ImageMagick's `magick`
+command for runtime conversion.
+
+## Agent status
+
+Automatic detection follows the agent selected by `omarchy-default-agent`.
+Recent session activity and process presence provide basic state detection.
+
+For precise Codex lifecycle states, install the optional hooks:
+
+```bash
+~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
+```
+
+The installer preserves existing hooks and backs up `~/.codex/config.toml`.
+Codex will ask you to trust the commands on its next start; inspect them with
+`/hooks`.
+
+## Usage
 
 Right-click the pet to list installed pets and switch between them. The choice
 is saved in the bar configuration. Left-click previews working and middle-click
 previews success. Hover for the current state and detail.
 
-Until a pet is installed and selected, the bar shows a placeholder. Right-click
-it to open the pet panel and follow the download link.
-
-## Use another Codex pet
-
-Install a pet into `~/.config/omarpets/pets/<pet-id>` and set the plugin's
-`petPath` to its ID:
+You can also select a pet through the CLI:
 
 ```bash
 omarchy bar set wei.omarpets petPath my-pet
 ```
-
-Alternatively, right-click the pet in the bar and choose it from the list.
-
-### Install from Petdex
-
-The included Node.js package can download a pet directly from its Petdex page:
-
-```bash
-npx omarpets https://petdex.dev/pets/kabi
-```
-
-When running from this checkout, use:
-
-```bash
-node bin/omarpets.js https://petdex.dev/pets/kabi
-```
-
-Pets are installed into `~/.config/omarpets/pets/<pet-id>` and appear in the
-right-click picker. Pass `--dir <path>` to use another pets directory. Existing
-pet folders are never overwritten.
-
-### Install from Codex Pets
-
-The same command accepts pet pages from [Codex Pets](https://codex-pets.net/):
-
-```bash
-npx omarpets 'https://codex-pets.net/#/pets/dario'
-```
-
-Quote the URL so the shell passes the `#` route to the installer.
-
-You can also set `petPath` to an absolute path or a path beginning with `~/`.
-The folder must contain `pet.json` and the PNG or WebP named by its
-`spritesheetPath`. WebP sheets are converted into the OmarPets cache at runtime
-for Qt builds without WebP support. The first nine rows must follow the Codex
-pet state contract. ImageMagick's `magick` command must be installed for WebP
-conversion.
 
 Useful settings:
 
