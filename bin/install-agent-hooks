@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# With no arguments, install integrations for every supported agent.
+supported=(codex claude opencode gemini copilot crush grok pi omp)
+targets=("${@:-all}")
+installed_hook="$HOME/.config/omarchy/plugins/wei.omarpets/bin/omarpets-hook"
+if [[ -x $installed_hook ]]; then
+  hook_command="$installed_hook"
+else
+  hook_command="$(cd -- "$(dirname -- "$0")" && pwd)/omarpets-hook"
+fi
+
+replace_managed() {
+  local target=$1 candidate=$2 backup
+  mkdir -p "$(dirname -- "$target")"
+  if [[ -f $target ]] && cmp -s "$target" "$candidate"; then
+    rm -f "$candidate"; printf 'OmarPets hooks already installed in %s\n' "$target"; return
+  fi
+  if [[ -f $target ]]; then
+    backup="$target.bak.$(date +%Y%m%d%H%M%S)"; cp -p "$target" "$backup"
+    printf 'Backup: %s\n' "$backup"
+  fi
+  mv -f "$candidate" "$target"
+  printf 'Installed OmarPets hooks in %s\n' "$target"
+}
+
+merge_grouped() {
+  local target=$1 agent=$2 spec=$3 current candidate
+  mkdir -p "$(dirname -- "$target")"; current=$(mktemp); candidate=$(mktemp)
+  [[ -s $target ]] && cp "$target" "$current" || printf '{}\n' >"$current"
+  jq empty "$current" || { printf 'Invalid JSON: %s\n' "$target" >&2; return 1; }
+  jq --arg command "$hook_command" --arg agent "$agent" --argjson spec "$spec" '
+    reduce ($spec | to_entries[]) as $item (.;
+      .hooks[$item.key] = ((.hooks[$item.key] // []) |
+        if any(.[]; any(.hooks[]?; (.command // "") == ($command + " " + $item.value + " " + $agent)))
+        then . else . + [{hooks:[{type:"command", command:($command + " " + $item.value + " " + $agent)}]}] end))
+  ' "$current" >"$candidate"
+  replace_managed "$target" "$candidate"; rm -f "$current"
+}
+
+install_codex() {
+  local target="${CODEX_HOME:-$HOME/.codex}/config.toml" backup
+  mkdir -p "$(dirname -- "$target")"; touch "$target"
+  if grep -Fq "$hook_command session-start codex" "$target"; then
+    printf 'OmarPets hooks already installed in %s\n' "$target"; return
+  fi
+  backup="$target.bak.$(date +%Y%m%d%H%M%S)"; cp -p "$target" "$backup"
+  while read -r hook event; do
+    printf '\n[[hooks.%s]]\n[[hooks.%s.hooks]]\ntype = "command"\ncommand = "%s %s codex"\n' \
+      "$hook" "$hook" "$hook_command" "$event" >>"$target"
+  done <<'EOF'
+SessionStart session-start
+UserPromptSubmit prompt
+PreToolUse tool-start
+PostToolUse tool-end
+PostToolUseFailure error
+PermissionRequest permission
+Stop stop
+StopFailure error
+SessionEnd session-end
+EOF
+  printf 'Installed OmarPets hooks in %s\nBackup: %s\n' "$target" "$backup"
+}
+
+install_claude() {
+  merge_grouped "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" claude \
+    '{"SessionStart":"session-start","UserPromptSubmit":"prompt","PreToolUse":"tool-start","PostToolUse":"tool-end","PostToolUseFailure":"error","PermissionRequest":"permission","Stop":"stop","StopFailure":"error","SessionEnd":"session-end"}'
+}
+
+install_gemini() {
+  merge_grouped "${GEMINI_CONFIG_DIR:-$HOME/.gemini}/settings.json" gemini \
+    '{"SessionStart":"session-start","BeforeAgent":"prompt","BeforeTool":"tool-start","AfterTool":"tool-end","AfterAgent":"stop","Notification":"permission","SessionEnd":"session-end"}'
+}
+
+install_hook_file() {
+  local target=$1 agent=$2 version=$3 events=$4 candidate
+  candidate=$(mktemp)
+  jq -n --arg cmd "$hook_command" --arg agent "$agent" --argjson events "$events" --argjson version "$version" '
+    {hooks:($events | with_entries(.value=[{type:"command", command:($cmd + " " + .value + " " + $agent)}]))}
+    | if $version == null then . else {version:$version} + . end
+  ' >"$candidate"
+  replace_managed "$target" "$candidate"
+}
+
+install_copilot() {
+  install_hook_file "${COPILOT_HOME:-$HOME/.copilot}/hooks/omarpets.json" copilot 1 \
+    '{"sessionStart":"session-start","userPromptSubmitted":"prompt","preToolUse":"tool-start","postToolUse":"tool-end","permissionRequest":"permission","agentStop":"stop","errorOccurred":"error","sessionEnd":"session-end"}'
+}
+
+install_grok() {
+  install_hook_file "${GROK_HOME:-$HOME/.grok}/hooks/omarpets.json" grok null \
+    '{"SessionStart":"session-start","UserPromptSubmit":"prompt","PreToolUse":"tool-start","PostToolUse":"tool-end","PostToolUseFailure":"error","PermissionDenied":"permission","Stop":"stop","StopFailure":"error","StopCancelled":"session-end","SessionEnd":"session-end"}'
+}
+
+install_crush() {
+  local target="${CRUSH_CONFIG_DIR:-$HOME/.config/crush}/crush.json" current candidate
+  mkdir -p "$(dirname -- "$target")"; current=$(mktemp); candidate=$(mktemp)
+  [[ -s $target ]] && cp "$target" "$current" || printf '{}\n' >"$current"
+  jq empty "$current" || { printf 'Invalid JSON: %s\n' "$target" >&2; return 1; }
+  jq --arg command "$hook_command tool-start crush" '
+    .hooks.PreToolUse=((.hooks.PreToolUse // []) | if any(.[];.command==$command) then . else .+[{name:"omarpets",command:$command}] end)
+  ' "$current" >"$candidate"
+  replace_managed "$target" "$candidate"; rm -f "$current"
+}
+
+install_opencode() {
+  local target="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/omarpets.js" candidate
+  candidate=$(mktemp)
+  sed "s|@HOOK@|$hook_command|g" >"$candidate" <<'EOF'
+export const OmarPets = async ({ $ }) => {
+  const emit = async event => { await $`@HOOK@ ${event} opencode`.quiet() }
+  return {
+    event: async ({ event }) => {
+      if (event.type === "session.created") await emit("session-start")
+      else if (event.type === "session.status" && event.properties?.status?.type === "busy") await emit("prompt")
+      else if (event.type === "permission.asked") await emit("permission")
+      else if (event.type === "session.idle") await emit("stop")
+      else if (event.type === "session.error") await emit("error")
+      else if (event.type === "session.deleted") await emit("session-end")
+    },
+    "tool.execute.before": async () => { await emit("tool-start") },
+    "tool.execute.after": async () => { await emit("tool-end") },
+  }
+}
+EOF
+  replace_managed "$target" "$candidate"
+}
+
+install_pi_extension() {
+  local agent=$1 root target candidate
+  [[ $agent == pi ]] && root="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" || root="${OMP_AGENT_DIR:-$HOME/.omp/agent}"
+  target="$root/extensions/omarpets.ts"; candidate=$(mktemp)
+  sed -e "s|@HOOK@|$hook_command|g" -e "s|@AGENT@|$agent|g" >"$candidate" <<'EOF'
+import { spawn } from "node:child_process"
+export default function (pi: any) {
+  const emit = (event: string) => {
+    const child = spawn("@HOOK@", [event, "@AGENT@"], { stdio:["pipe","ignore","ignore"] })
+    child.stdin.end("{}")
+  }
+  pi.on("session_start", () => emit("session-start"))
+  pi.on("before_agent_start", () => emit("prompt"))
+  pi.on("tool_call", () => emit("tool-start"))
+  pi.on("tool_result", () => emit("tool-end"))
+  pi.on("agent_settled", () => emit("stop"))
+  pi.on("session_shutdown", () => emit("session-end"))
+}
+EOF
+  replace_managed "$target" "$candidate"
+}
+
+install_one() {
+  case "$1" in
+    codex) install_codex ;;
+    claude|gemini|copilot|grok|crush|opencode) "install_$1" ;;
+    pi|omp) install_pi_extension "$1" ;;
+    oh-my-pi) install_pi_extension omp ;;
+    *) printf 'Unsupported agent: %s\nSupported: %s\n' "$1" "${supported[*]}" >&2; return 2 ;;
+  esac
+}
+
+[[ ${targets[0]} == all ]] && targets=("${supported[@]}")
+for target in "${targets[@]}"; do install_one "$target"; done

@@ -39,25 +39,22 @@ Pets are installed into `~/.config/omarpets/pets/<pet-id>` and appear in the
 right-click picker. Existing pet folders are never overwritten. Use
 `--dir <path>` to choose another destination.
 
-You can also create a pet folder manually. It must contain `pet.json` and the
-PNG or WebP named by `spritesheetPath`. The first nine atlas rows must follow
-the Codex pet state contract. WebP sheets require ImageMagick's `magick`
-command for runtime conversion.
-
 ## Agent status
 
 Automatic detection follows the agent selected by `omarchy-default-agent`.
 Recent session activity and process presence provide basic state detection.
 
-For precise Codex lifecycle states, install the optional hooks:
+For precise lifecycle states, install the optional integrations for all supported
+agents:
 
 ```bash
-~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
+~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks
 ```
 
-The installer preserves existing hooks and backs up `~/.codex/config.toml`.
-Codex will ask you to trust the commands on its next start; inspect them with
-`/hooks`.
+The installer supports Codex, Claude Code, OpenCode, Gemini CLI, GitHub Copilot,
+Crush, Grok, Pi, and Oh My Pi. Pass an agent name to install only that agent,
+for example `install-agent-hooks claude`. Existing configuration is preserved
+and changed files are backed up.
 
 ## Usage
 
