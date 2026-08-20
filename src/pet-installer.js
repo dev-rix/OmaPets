@@ -3,27 +3,39 @@ import { basename, join, resolve } from "node:path"
 import { mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises"
 
 const DEFAULT_MANIFEST_URL = "https://petdex.dev/api/manifest"
+const DEFAULT_CODEX_PETS_API_BASE = "https://codex-pets.net/api/pets"
 const PETDEX_HOSTS = new Set(["petdex.dev", "www.petdex.dev", "petdex.crafter.run"])
+const CODEX_PETS_HOSTS = new Set(["codex-pets.net", "www.codex-pets.net"])
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 
-export function petSlugFromUrl(value) {
+function petSourceFromUrl(value) {
   let url
   try {
     url = new URL(value)
   } catch {
-    throw new Error(`Invalid Petdex URL: ${value}`)
+    throw new Error(`Invalid pet URL: ${value}`)
   }
 
-  if (url.protocol !== "https:" || !PETDEX_HOSTS.has(url.hostname))
-    throw new Error("Pet URL must use HTTPS on petdex.dev")
+  if (url.protocol !== "https:" || (!PETDEX_HOSTS.has(url.hostname) && !CODEX_PETS_HOSTS.has(url.hostname)))
+    throw new Error("Pet URL must use HTTPS on petdex.dev or codex-pets.net")
 
-  const parts = url.pathname.split("/").filter(Boolean)
+  const provider = CODEX_PETS_HOSTS.has(url.hostname) ? "codex-pets" : "petdex"
+  const route = provider === "codex-pets" && url.hash
+    ? url.hash.replace(/^#\/?/, "/")
+    : url.pathname
+  const parts = route.split("/").filter(Boolean)
   const petsIndex = parts.indexOf("pets")
   const slug = petsIndex >= 0 ? parts[petsIndex + 1] : ""
   if (!slug || petsIndex + 2 !== parts.length || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
-    throw new Error("Pet URL must look like https://petdex.dev/pets/<pet-id>")
+    throw new Error(`Pet URL must look like ${provider === "codex-pets"
+      ? "https://codex-pets.net/#/pets/<pet-id>"
+      : "https://petdex.dev/pets/<pet-id>"}`)
 
-  return slug
+  return { provider, slug }
+}
+
+export function petSlugFromUrl(value) {
+  return petSourceFromUrl(value).slug
 }
 
 function entriesFromManifest(manifest) {
@@ -49,54 +61,74 @@ async function download(url, fetchImpl) {
   return bytes
 }
 
-function validatePetJson(bytes, slug) {
+function validatePetJson(bytes) {
   let pet
   try {
     pet = JSON.parse(bytes.toString("utf8"))
   } catch {
-    throw new Error("Petdex returned an invalid pet.json")
+    throw new Error("Pet provider returned an invalid pet.json")
   }
 
+  const petId = String(pet.id || "")
   const spritesheetPath = String(pet.spritesheetPath || "")
-  if (pet.id !== slug) throw new Error(`pet.json ID does not match URL slug ${slug}`)
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(petId))
+    throw new Error("pet.json ID must be a safe lowercase slug")
   if (basename(spritesheetPath) !== spritesheetPath || !/^spritesheet\.(webp|png)$/i.test(spritesheetPath))
     throw new Error("pet.json must reference spritesheet.webp or spritesheet.png")
 
-  return { pet, spritesheetPath }
+  return { pet, petId, spritesheetPath }
 }
 
 export async function installPet(petUrl, options = {}) {
-  const slug = petSlugFromUrl(petUrl)
+  const { provider, slug } = petSourceFromUrl(petUrl)
   const fetchImpl = options.fetchImpl || globalThis.fetch
   if (typeof fetchImpl !== "function") throw new Error("This command requires Node.js 20 or newer")
 
   const petsDir = resolve(options.petsDir || join(homedir(), ".config", "omarpets", "pets"))
-  const destination = join(petsDir, slug)
 
-  try {
-    await stat(destination)
-    throw new Error(`Pet is already installed: ${destination}`)
-  } catch (error) {
-    if (error?.code !== "ENOENT") throw error
+  let petJsonUrl
+  let spritesheetUrl
+  let inlinePetJson
+
+  if (provider === "codex-pets") {
+    const apiBase = String(options.codexPetsApiBase || DEFAULT_CODEX_PETS_API_BASE).replace(/\/$/, "")
+    const detailResponse = await fetchResponse(`${apiBase}/${encodeURIComponent(slug)}`, fetchImpl)
+    const detail = await detailResponse.json()
+    const pet = detail?.pet
+    if (!pet || !pet.spritesheetUrl)
+      throw new Error(`Codex Pets returned incomplete metadata: ${slug}`)
+    inlinePetJson = Buffer.from(`${JSON.stringify(pet, null, 2)}\n`)
+    spritesheetUrl = pet.spritesheetUrl
+  } else {
+    const manifestUrl = options.manifestUrl || DEFAULT_MANIFEST_URL
+    const manifestResponse = await fetchResponse(manifestUrl, fetchImpl)
+    const entries = entriesFromManifest(await manifestResponse.json())
+    const entry = entries.find(candidate => candidate?.slug === slug)
+    if (!entry) throw new Error(`Petdex pet not found: ${slug}`)
+    if (!entry.petJsonUrl || !entry.spritesheetUrl)
+      throw new Error(`Petdex manifest entry is incomplete: ${slug}`)
+    petJsonUrl = entry.petJsonUrl
+    spritesheetUrl = entry.spritesheetUrl
   }
-
-  const manifestUrl = options.manifestUrl || DEFAULT_MANIFEST_URL
-  const manifestResponse = await fetchResponse(manifestUrl, fetchImpl)
-  const entries = entriesFromManifest(await manifestResponse.json())
-  const entry = entries.find(candidate => candidate?.slug === slug)
-  if (!entry) throw new Error(`Petdex pet not found: ${slug}`)
-  if (!entry.petJsonUrl || !entry.spritesheetUrl)
-    throw new Error(`Petdex manifest entry is incomplete: ${slug}`)
 
   await mkdir(petsDir, { recursive: true })
   const stagingDir = await mkdtemp(join(petsDir, `.${slug}-`))
+  let destination
 
   try {
     const [petJsonBytes, spritesheetBytes] = await Promise.all([
-      download(entry.petJsonUrl, fetchImpl),
-      download(entry.spritesheetUrl, fetchImpl),
+      inlinePetJson || download(petJsonUrl, fetchImpl),
+      download(spritesheetUrl, fetchImpl),
     ])
-    const { pet, spritesheetPath } = validatePetJson(petJsonBytes, slug)
+    const { pet, petId, spritesheetPath } = validatePetJson(petJsonBytes)
+    destination = join(petsDir, petId)
+
+    try {
+      await stat(destination)
+      throw new Error(`Pet is already installed: ${destination}`)
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error
+    }
 
     await Promise.all([
       writeFile(join(stagingDir, "pet.json"), petJsonBytes),
@@ -105,13 +137,14 @@ export async function installPet(petUrl, options = {}) {
     await rename(stagingDir, destination)
 
     return {
-      slug,
+      slug: petId,
+      sourceSlug: slug,
       displayName: String(pet.displayName || pet.id),
       destination,
     }
   } catch (error) {
     await rm(stagingDir, { recursive: true, force: true })
-    if (error?.code === "EEXIST" || error?.code === "ENOTEMPTY")
+    if (destination && (error?.code === "EEXIST" || error?.code === "ENOTEMPTY"))
       throw new Error(`Pet is already installed: ${destination}`)
     throw error
   }

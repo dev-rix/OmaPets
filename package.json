@@ -1,7 +1,7 @@
 {
   "name": "omarpets",
   "version": "0.1.0",
-  "description": "Install Petdex pets for the OmarPets Omarchy widget",
+  "description": "Install Petdex and Codex Pets for the OmarPets Omarchy widget",
   "type": "module",
   "bin": {
     "omarpets": "bin/omarpets.js"
@@ -20,6 +20,7 @@
   "keywords": [
     "omarchy",
     "petdex",
+    "codex-pets",
     "codex",
     "cli"
   ],

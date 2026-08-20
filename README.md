@@ -80,6 +80,16 @@ Pets are installed into `~/.config/omarpets/pets/<pet-id>` and appear in the
 right-click picker. Pass `--dir <path>` to use another pets directory. Existing
 pet folders are never overwritten.
 
+### Install from Codex Pets
+
+The same command accepts pet pages from [Codex Pets](https://codex-pets.net/):
+
+```bash
+npx omarpets 'https://codex-pets.net/#/pets/dario'
+```
+
+Quote the URL so the shell passes the `#` route to the installer.
+
 You can also set `petPath` to an absolute path or a path beginning with `~/`.
 The folder must contain `pet.json` and the PNG or WebP named by its
 `spritesheetPath`. WebP sheets are converted into the OmarPets cache at runtime

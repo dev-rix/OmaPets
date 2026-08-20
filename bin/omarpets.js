@@ -8,7 +8,8 @@ const usage = `Usage:
   omarpets install <pet-url> [--dir <pets-directory>]
 
 Example:
-  omarpets https://petdex.dev/pets/kabi`
+  omarpets https://petdex.dev/pets/kabi
+  omarpets https://codex-pets.net/#/pets/dario`
 
 function parseArgs(args) {
   const values = [...args]
@@ -28,7 +29,7 @@ function parseArgs(args) {
     }
   }
 
-  if (!petUrl) throw new Error("A Petdex pet URL is required")
+  if (!petUrl) throw new Error("A Petdex or Codex Pets URL is required")
   return { petUrl, petsDir }
 }
 

@@ -10,6 +10,10 @@ test("extracts a slug from a Petdex URL", () => {
   assert.equal(petSlugFromUrl("https://petdex.dev/en/pets/kabi/"), "kabi")
 })
 
+test("extracts a slug from a Codex Pets hash URL", () => {
+  assert.equal(petSlugFromUrl("https://codex-pets.net/#/pets/dario"), "dario")
+})
+
 test("rejects non-Petdex and malformed URLs", () => {
   assert.throws(() => petSlugFromUrl("https://example.com/pets/kabi"), /petdex\.dev/)
   assert.throws(() => petSlugFromUrl("https://petdex.dev/pets/kabi/extra"), /must look like/)
@@ -33,7 +37,7 @@ test("downloads a pet package into the OmarPets layout", async () => {
   const fetchImpl = async url => {
     const response = responses.get(String(url))
     if (!response) return new Response("missing", { status: 404 })
-    return response
+    return response.clone()
   }
 
   const installed = await installPet("https://petdex.dev/pets/kabi", {
@@ -52,7 +56,7 @@ test("downloads a pet package into the OmarPets layout", async () => {
   )
 })
 
-test("rejects a manifest whose pet ID does not match the URL", async () => {
+test("uses a safe manifest ID when it differs from the provider URL slug", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const manifestUrl = "https://test.invalid/manifest"
   const fetchImpl = async url => {
@@ -63,8 +67,54 @@ test("rejects a manifest whose pet ID does not match the URL", async () => {
     return new Response(new Uint8Array([1]))
   }
 
+  const installed = await installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl })
+  assert.equal(installed.slug, "other")
+  assert.equal(installed.sourceSlug, "kabi")
+  assert.equal(installed.destination, join(petsDir, "other"))
+})
+
+test("rejects an unsafe manifest ID", async () => {
+  const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
+  const manifestUrl = "https://test.invalid/manifest"
+  const fetchImpl = async url => {
+    if (url === manifestUrl)
+      return Response.json([{ slug: "kabi", petJsonUrl: "https://test.invalid/pet", spritesheetUrl: "https://test.invalid/sprite" }])
+    if (url === "https://test.invalid/pet")
+      return Response.json({ id: "../escape", spritesheetPath: "spritesheet.webp" })
+    return new Response(new Uint8Array([1]))
+  }
+
   await assert.rejects(
     installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl }),
-    /ID does not match/,
+    /safe lowercase slug/,
   )
+})
+
+test("downloads a pet from Codex Pets into the OmarPets layout", async () => {
+  const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
+  const apiBase = "https://test.invalid/api/pets"
+  const spritesheetUrl = "https://test.invalid/dario.webp"
+  const pet = {
+    id: "dario",
+    displayName: "Dario",
+    description: "A tiny frustrated pet.",
+    spritesheetPath: "spritesheet.webp",
+    spriteVersionNumber: 1,
+    spritesheetUrl,
+  }
+  const fetchImpl = async url => {
+    if (url === `${apiBase}/dario`) return Response.json({ pet })
+    if (url === spritesheetUrl) return new Response(new Uint8Array([82, 73, 70, 70]))
+    return new Response("missing", { status: 404 })
+  }
+
+  const installed = await installPet("https://codex-pets.net/#/pets/dario", {
+    petsDir,
+    codexPetsApiBase: apiBase,
+    fetchImpl,
+  })
+
+  assert.equal(installed.destination, join(petsDir, "dario"))
+  assert.equal(JSON.parse(await readFile(join(petsDir, "dario", "pet.json"), "utf8")).id, "dario")
+  assert.deepEqual(await readFile(join(petsDir, "dario", "spritesheet.webp")), Buffer.from([82, 73, 70, 70]))
 })
