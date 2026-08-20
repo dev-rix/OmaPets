@@ -283,7 +283,7 @@ BarWidget {
   Process {
     id: readmeOpener
     running: false
-    command: ["xdg-open", "https://github.com/yesmeck/OmarPets#install-from-petdex"]
+    command: ["xdg-open", "https://github.com/yesmeck/OmarPets#install-a-pet"]
   }
 
   Process {
@@ -489,7 +489,7 @@ BarWidget {
 
         Text {
           width: parent.width
-          text: "No pets installed yet. Download a pet from Petdex to get started."
+          text: "No pets installed yet. Download a pet to get started."
           color: root.bar.foreground
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.body
