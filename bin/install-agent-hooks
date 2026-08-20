@@ -4,11 +4,11 @@ set -euo pipefail
 # With no arguments, install integrations for every supported agent.
 supported=(codex claude opencode gemini copilot crush grok pi omp)
 targets=("${@:-all}")
-installed_hook="$HOME/.config/omarchy/plugins/wei.omarpets/bin/omarpets-hook"
+installed_hook="$HOME/.config/omarchy/plugins/wei.omarpets/bin/omapets-hook"
 if [[ -x $installed_hook ]]; then
   hook_command="$installed_hook"
 else
-  hook_command="$(cd -- "$(dirname -- "$0")" && pwd)/omarpets-hook"
+  hook_command="$(cd -- "$(dirname -- "$0")" && pwd)/omapets-hook"
 fi
 
 replace_managed() {
@@ -84,12 +84,12 @@ install_hook_file() {
 }
 
 install_copilot() {
-  install_hook_file "${COPILOT_HOME:-$HOME/.copilot}/hooks/omarpets.json" copilot 1 \
+  install_hook_file "${COPILOT_HOME:-$HOME/.copilot}/hooks/omapets.json" copilot 1 \
     '{"sessionStart":"session-start","userPromptSubmitted":"prompt","preToolUse":"tool-start","postToolUse":"tool-end","permissionRequest":"permission","agentStop":"stop","errorOccurred":"error","sessionEnd":"session-end"}'
 }
 
 install_grok() {
-  install_hook_file "${GROK_HOME:-$HOME/.grok}/hooks/omarpets.json" grok null \
+  install_hook_file "${GROK_HOME:-$HOME/.grok}/hooks/omapets.json" grok null \
     '{"SessionStart":"session-start","UserPromptSubmit":"prompt","PreToolUse":"tool-start","PostToolUse":"tool-end","PostToolUseFailure":"error","PermissionDenied":"permission","Stop":"stop","StopFailure":"error","StopCancelled":"session-end","SessionEnd":"session-end"}'
 }
 
@@ -105,7 +105,7 @@ install_crush() {
 }
 
 install_opencode() {
-  local target="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/omarpets.js" candidate
+  local target="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/omapets.js" candidate
   candidate=$(mktemp)
   sed "s|@HOOK@|$hook_command|g" >"$candidate" <<'EOF'
 export const OmaPets = async ({ $ }) => {
@@ -130,7 +130,7 @@ EOF
 install_pi_extension() {
   local agent=$1 root target candidate
   [[ $agent == pi ]] && root="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" || root="${OMP_AGENT_DIR:-$HOME/.omp/agent}"
-  target="$root/extensions/omarpets.ts"; candidate=$(mktemp)
+  target="$root/extensions/omapets.ts"; candidate=$(mktemp)
   sed -e "s|@HOOK@|$hook_command|g" -e "s|@AGENT@|$agent|g" >"$candidate" <<'EOF'
 import { spawn } from "node:child_process"
 export default function (pi: any) {

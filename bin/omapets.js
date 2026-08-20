@@ -4,13 +4,13 @@ import process from "node:process"
 import { installPet } from "../src/pet-installer.js"
 
 const usage = `Usage:
-  omarpets <pet-url> [--dir <pets-directory>]
-  omarpets install <pet-url> [--dir <pets-directory>]
+  omapets <pet-url> [--dir <pets-directory>]
+  omapets install <pet-url> [--dir <pets-directory>]
 
 Example:
-  omarpets https://petdex.dev/pets/kabi
-  omarpets https://codex-pets.net/#/pets/dario
-  omarpets https://openpets.dev/pets/player-05-b28eec8e`
+  omapets https://petdex.dev/pets/kabi
+  omapets https://codex-pets.net/#/pets/dario
+  omapets https://openpets.dev/pets/player-05-b28eec8e`
 
 function parseArgs(args) {
   const values = [...args]
@@ -44,7 +44,7 @@ try {
   const result = await installPet(args.petUrl, { petsDir: args.petsDir })
   console.log(`Installed ${result.displayName} to ${result.destination}`)
 } catch (error) {
-  console.error(`omarpets: ${error.message}`)
+  console.error(`omapets: ${error.message}`)
   console.error(usage)
   process.exitCode = 1
 }

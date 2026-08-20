@@ -22,9 +22,9 @@ The included Node.js package supports [Petdex](https://petdex.dev/),
 URLs:
 
 ```bash
-npx omarpets https://petdex.dev/pets/kabi
-npx omarpets 'https://codex-pets.net/#/pets/dario'
-npx omarpets https://openpets.dev/pets/player-05-b28eec8e
+npx omapets https://petdex.dev/pets/kabi
+npx omapets 'https://codex-pets.net/#/pets/dario'
+npx omapets https://openpets.dev/pets/player-05-b28eec8e
 ```
 
 Quote Codex Pets URLs so the shell preserves the `#` route.
