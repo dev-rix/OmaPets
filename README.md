@@ -2,13 +2,7 @@
 
 OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a live coding-agent status indicator. It supports the standard v1 (`1536x1872`) and v2 (`1536x2288`) sprite layouts. Pets are installed separately and no artwork is bundled with the plugin.
 
-| Agent state | Pet animation row |
-| --- | --- |
-| Idle | Idle |
-| Working | Running / active work |
-| Waiting for input | Waiting |
-| Finished | Review |
-| Failed | Failed |
+<video src="assets/omarpets.mp4" controls></video>
 
 ## Install the plugin
 
@@ -44,17 +38,31 @@ right-click picker. Existing pet folders are never overwritten. Use
 Automatic detection follows the agent selected by `omarchy-default-agent`.
 Recent session activity and process presence provide basic state detection.
 
-For precise lifecycle states, install the optional integrations for all supported
-agents:
+For more accurate working, waiting, finished, and failed states, install the
+optional lifecycle integrations:
 
 ```bash
 ~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks
 ```
 
-The installer supports Codex, Claude Code, OpenCode, Gemini CLI, GitHub Copilot,
-Crush, Grok, Pi, and Oh My Pi. Pass an agent name to install only that agent,
-for example `install-agent-hooks claude`. Existing configuration is preserved
-and changed files are backed up.
+With no arguments, the script installs integrations for every supported agent.
+You can instead install one or more named agents:
+
+```bash
+~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks claude
+~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks codex gemini
+```
+
+Supported names are `codex`, `claude`, `opencode`, `gemini`, `copilot`,
+`crush`, `grok`, `pi`, and `omp`. The installer uses each agent's native hook,
+plugin, or extension mechanism. Existing JSON and TOML settings are preserved,
+changed files are backed up, and running it again does not add duplicate hooks.
+
+Restart any open agent sessions after installation. OmarPets only uses hook data
+from the agent currently selected by `omarchy-default-agent`; other installed
+integrations can remain enabled for when you switch agents. Crush currently
+exposes only a pre-tool hook, so its remaining states continue to use automatic
+activity detection.
 
 ## Usage
 
