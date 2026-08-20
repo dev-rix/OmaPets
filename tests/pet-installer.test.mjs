@@ -23,7 +23,7 @@ test("rejects non-Petdex and malformed URLs", () => {
   assert.throws(() => petSlugFromUrl("https://petdex.dev/pets/kabi/extra"), /must look like/)
 })
 
-test("downloads a pet package into the OmarPets layout", async () => {
+test("downloads a pet package into the OmaPets layout", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const manifestUrl = "https://test.invalid/manifest"
   const petJsonUrl = "https://test.invalid/pet.json"
@@ -93,7 +93,7 @@ test("normalizes a path-like manifest ID without escaping the pets directory", a
   assert.equal(installed.destination, join(petsDir, "escape"))
 })
 
-test("downloads a pet from Codex Pets into the OmarPets layout", async () => {
+test("downloads a pet from Codex Pets into the OmaPets layout", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const apiBase = "https://test.invalid/api/pets"
   const spritesheetUrl = "https://test.invalid/dario.webp"
@@ -122,7 +122,7 @@ test("downloads a pet from Codex Pets into the OmarPets layout", async () => {
   assert.deepEqual(await readFile(join(petsDir, "dario", "spritesheet.webp")), Buffer.from([82, 73, 70, 70]))
 })
 
-test("downloads a pet from OpenPets into the OmarPets layout", async () => {
+test("downloads a pet from OpenPets into the OmaPets layout", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const searchIndexUrl = "https://test.invalid/catalog/search.json"
   const searchPageUrl = "https://test.invalid/catalog/search-page-000.json"

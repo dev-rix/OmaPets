@@ -1,12 +1,12 @@
-# OmarPets
+# OmaPets
 
-OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a live coding-agent status indicator. It supports the standard v1 (`1536x1872`) and v2 (`1536x2288`) sprite layouts. Pets are installed separately and no artwork is bundled with the plugin.
+OmaPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a live coding-agent status indicator. It supports the standard v1 (`1536x1872`) and v2 (`1536x2288`) sprite layouts. Pets are installed separately and no artwork is bundled with the plugin.
 
 https://github.com/user-attachments/assets/be318ba0-94ea-4dd5-a315-9245acc02349
 
 ## Install the plugin
 
-Install and enable OmarPets:
+Install and enable OmaPets:
 
 ```bash
 omarchy plugin add https://github.com/yesmeck/omarpets.git --enable --yes
@@ -58,7 +58,7 @@ Supported names are `codex`, `claude`, `opencode`, `gemini`, `copilot`,
 plugin, or extension mechanism. Existing JSON and TOML settings are preserved,
 changed files are backed up, and running it again does not add duplicate hooks.
 
-Restart any open agent sessions after installation. OmarPets only uses hook data
+Restart any open agent sessions after installation. OmaPets only uses hook data
 from the agent currently selected by `omarchy-default-agent`; other installed
 integrations can remain enabled for when you switch agents. Crush currently
 exposes only a pre-tool hook, so its remaining states continue to use automatic

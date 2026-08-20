@@ -1,7 +1,7 @@
 {
   "name": "omarpets",
   "version": "0.2.2",
-  "description": "Install pets from Petdex, Codex Pets, and OpenPets for the OmarPets Omarchy widget",
+  "description": "Install pets from Petdex, Codex Pets, and OpenPets for the OmaPets Omarchy widget",
   "type": "module",
   "bin": {
     "omarpets": "bin/omarpets.js"

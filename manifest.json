@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "wei.omarpets",
-  "name": "OmarPets",
+  "name": "OmaPets",
   "version": "0.2.1",
-  "author": "OmarPets contributors",
+  "author": "OmaPets contributors",
   "license": "MIT",
   "description": "An animated Codex-compatible pet that reflects coding-agent activity in the Omarchy top bar.",
   "kinds": ["bar-widget"],
@@ -12,7 +12,7 @@
     "barWidget": "Main.qml"
   },
   "barWidget": {
-    "displayName": "OmarPets",
+    "displayName": "OmaPets",
     "description": "A Codex-compatible animated pet for idle, working, waiting, success, and error states.",
     "category": "AI",
     "aliases": ["pet", "agent-pet", "codex-pet"],
