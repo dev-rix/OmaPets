@@ -34,14 +34,14 @@ Automatic detection follows the agent selected by `omarchy-default-agent`. Expli
 
 The installer adds commands alongside existing hooks without replacing them. Codex will ask you to trust the new commands when it next starts. The hooks report prompt submission, tool activity, permission requests, completion, and session boundaries through a small atomic state file.
 
-For exact state reporting from any agent or hook, run the bundled controller:
+For exact state reporting from any agent or hook, call the shell IPC handler:
 
 ```bash
-~/.config/omarchy/plugins/wei.omarpets/bin/omarpetsctl working "Running tests"
-~/.config/omarchy/plugins/wei.omarpets/bin/omarpetsctl waiting "Approve deployment"
-~/.config/omarchy/plugins/wei.omarpets/bin/omarpetsctl success "Tests passed"
-~/.config/omarchy/plugins/wei.omarpets/bin/omarpetsctl error "Build failed"
-~/.config/omarchy/plugins/wei.omarpets/bin/omarpetsctl idle
+omarchy-shell wei.omarpets working "Running tests"
+omarchy-shell wei.omarpets waiting "Approve deployment"
+omarchy-shell wei.omarpets success "Tests passed"
+omarchy-shell wei.omarpets error "Build failed"
+omarchy-shell wei.omarpets idle ""
 ```
 
 Right-click the pet to list installed pets and switch between them. The choice
