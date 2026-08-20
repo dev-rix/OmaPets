@@ -4,7 +4,7 @@ set -euo pipefail
 # With no arguments, install integrations for every supported agent.
 supported=(codex claude opencode gemini copilot crush grok pi omp)
 targets=("${@:-all}")
-installed_hook="$HOME/.config/omarchy/plugins/wei.omarpets/bin/omapets-hook"
+installed_hook="$HOME/.config/omarchy/plugins/omapets/bin/omapets-hook"
 if [[ -x $installed_hook ]]; then
   hook_command="$installed_hook"
 else

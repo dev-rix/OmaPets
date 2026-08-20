@@ -42,15 +42,15 @@ For more accurate working, waiting, finished, and failed states, install the
 optional lifecycle integrations:
 
 ```bash
-~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks
+~/.config/omarchy/plugins/omapets/bin/install-agent-hooks
 ```
 
 With no arguments, the script installs integrations for every supported agent.
 You can instead install one or more named agents:
 
 ```bash
-~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks claude
-~/.config/omarchy/plugins/wei.omarpets/bin/install-agent-hooks codex gemini
+~/.config/omarchy/plugins/omapets/bin/install-agent-hooks claude
+~/.config/omarchy/plugins/omapets/bin/install-agent-hooks codex gemini
 ```
 
 Supported names are `codex`, `claude`, `opencode`, `gemini`, `copilot`,
@@ -73,13 +73,13 @@ previews success. Hover for the current state and detail.
 You can also select a pet through the CLI:
 
 ```bash
-omarchy bar set wei.omarpets petPath my-pet
+omarchy bar set omapets petPath my-pet
 ```
 
 Useful settings:
 
 ```bash
-omarchy bar set wei.omarpets scale 1.5 --json
-omarchy bar set wei.omarpets frameIntervalMs 120 --json
-omarchy bar set wei.omarpets autoDetect false --json
+omarchy bar set omapets scale 1.5 --json
+omarchy bar set omapets frameIntervalMs 120 --json
+omarchy bar set omapets autoDetect false --json
 ```

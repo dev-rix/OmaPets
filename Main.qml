@@ -7,7 +7,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "wei.omarpets"
+  moduleName: "omapets"
 
   // Codex atlas rows: idle, right, left, wave, jump, failed, waiting,
   // running/active, review. V2 adds two rows but keeps these first nine.
@@ -257,7 +257,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "wei.omarpets"
+    target: "omapets"
 
     function idle(detail: string): void { root.setActivity("idle", detail, 0) }
     function working(detail: string): void { root.setActivity("working", detail, 0) }

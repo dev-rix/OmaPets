@@ -2,6 +2,12 @@ import assert from "node:assert/strict"
 import { readFileSync, statSync } from "node:fs"
 
 const qml = readFileSync(new URL("../Main.qml", import.meta.url), "utf8")
+const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"))
+
+assert.equal(manifest.id, "omapets")
+assert.match(qml, /moduleName:\s*"omapets"/)
+assert.match(qml, /target:\s*"omapets"/)
+assert.doesNotMatch(qml, /wei\.omarpets/)
 
 for (const script of ["scan-pets", "detect-agent"]) {
   const scriptUrl = new URL(`../bin/${script}`, import.meta.url)
