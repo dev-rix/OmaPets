@@ -52,10 +52,11 @@ BarWidget {
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string cacheHome: Quickshell.env("XDG_CACHE_HOME") || home + "/.cache"
   readonly property string convertedSheetPath: cacheHome + "/omarpets/spritesheet.png"
+  readonly property string previewHome: cacheHome + "/omarpets/previews"
   readonly property string configuredPetPath: String(setting("petPath", ""))
   readonly property string petsHome: home + "/.config/omarpets/pets"
   readonly property string resolvedPetPath: resolvePetPath(configuredPetPath)
-  readonly property url petManifestUrl: configuredPetPath === ""
+  readonly property url petManifestUrl: configuredPetPath === "" || resolvedPetPath === ""
     ? Qt.resolvedUrl("assets/ponyta/pet.json")
     : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
   property string petName: "Ponyta"
@@ -84,17 +85,35 @@ BarWidget {
     if (!petScanner.running) petScanner.running = true
   }
 
-  function close() { petPickerOpen = false }
+  function close() {
+    petPickerOpen = false
+  }
+
+  function openPetPicker() {
+    petPickerOpen = true
+    refreshAvailablePets()
+  }
 
   function parseAvailablePets(output) {
-    var pets = [{ id: "", name: "Ponyta (bundled)" }]
+    var pets = [{
+      id: "",
+      name: "Ponyta (bundled)",
+      spritesheet: "file://" + previewHome + "/ponyta.png"
+    }]
     var lines = String(output || "").trim().split("\n")
     for (var index = 0; index < lines.length; index++) {
       if (lines[index] === "") continue
       var fields = lines[index].split("\t")
       var id = String(fields.shift() || "").trim()
       if (id === "") continue
-      pets.push({ id: id, name: String(fields.join(" ") || id).trim() })
+      var name = String(fields.shift() || id).trim()
+      fields.shift()
+      var previewSheet = "file://" + previewHome + "/" + id + ".png"
+      pets.push({
+        id: id,
+        name: name,
+        spritesheet: previewSheet
+      })
     }
     availablePets = pets
   }
@@ -174,7 +193,6 @@ BarWidget {
   }
 
   function reloadPet() { petManifest.reload() }
-  onPetManifestUrlChanged: reloadPet()
 
   FileView {
     id: petManifest
@@ -220,14 +238,22 @@ BarWidget {
     id: petScanner
     running: false
     command: ["sh", "-c",
-      "pets=$1; [ -d \"$pets\" ] || exit 0; "
+      "pets=$1; previews=$2; bundled=$3; mkdir -p \"$previews\" || exit 1; "
+      + "bundled_preview=\"$previews/ponyta.png\"; "
+      + "if [ ! -f \"$bundled_preview\" ] || [ \"$bundled\" -nt \"$bundled_preview\" ]; then "
+      + "magick \"$bundled\" \"$bundled_preview\" || exit 1; fi; "
+      + "[ -d \"$pets\" ] || exit 0; "
       + "find \"$pets\" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\\n' 2>/dev/null "
       + "| sort | while IFS= read -r dir; do "
       + "id=${dir##*/}; sheet=$(jq -r '.spritesheetPath // empty' \"$dir/pet.json\" 2>/dev/null); "
       + "[ -n \"$sheet\" ] && [ -f \"$dir/$sheet\" ] || continue; "
+      + "preview=\"$previews/$id.png\"; "
+      + "if [ ! -f \"$preview\" ] || [ \"$dir/$sheet\" -nt \"$preview\" ]; then "
+      + "magick \"$dir/$sheet\" \"$preview\" || continue; fi; "
       + "name=$(jq -r '.displayName // .id // empty' \"$dir/pet.json\" 2>/dev/null | tr '\\t\\r\\n' '   '); "
-      + "[ -n \"$name\" ] || name=$id; printf '%s\\t%s\\n' \"$id\" \"$name\"; done",
-      "omarpets-scan", root.petsHome]
+      + "[ -n \"$name\" ] || name=$id; printf '%s\\t%s\\t%s\\n' \"$id\" \"$name\" \"$sheet\"; done",
+      "omarpets-scan", root.petsHome, root.previewHome,
+      root.filePath(Qt.resolvedUrl("assets/ponyta/spritesheet.webp"))]
 
     stdout: StdioCollector {
       waitForEnd: true
@@ -244,6 +270,7 @@ BarWidget {
     function success(detail: string): void { root.setActivity("success", detail, 5000) }
     function error(detail: string): void { root.setActivity("error", detail, 8000) }
     function refresh(): void { root.reloadPet() }
+    function refreshPets(): void { root.refreshAvailablePets() }
   }
 
   Process {
@@ -328,8 +355,8 @@ BarWidget {
       hoverEnabled: true
       onClicked: function(mouse) {
         if (mouse.button === Qt.RightButton) {
-          root.refreshAvailablePets()
-          root.petPickerOpen = !root.petPickerOpen
+          if (root.petPickerOpen) root.close()
+          else root.openPetPicker()
         }
         else if (mouse.button === Qt.MiddleButton) root.setActivity("success", "Test success animation", 2500)
         else root.setActivity("working", "Test working animation", 1800)
@@ -337,81 +364,93 @@ BarWidget {
     }
   }
 
-  PopupCard {
+  KeyboardPanel {
     id: petPicker
     anchorItem: root
-    owner: root
     bar: root.bar
+    owner: root
     open: root.petPickerOpen
-    contentWidth: petPicker.fittedContentWidth(Style.space(240))
-    contentHeight: petPicker.fittedContentHeight(petList.implicitHeight)
+    contentWidth: petPicker.fittedContentWidth(Style.space(360))
+    contentHeight: Style.space(320)
 
-    Column {
-      id: petList
+    Item {
+      id: petPickerContent
       anchors.fill: parent
-      spacing: Style.space(4)
 
       Text {
-        text: "Choose pet"
+        id: petPickerTitle
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        text: petScanner.running ? "Finding pets…" : "Choose pet"
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.body
         font.bold: true
-        bottomPadding: Style.space(4)
       }
 
-      Text {
-        visible: petScanner.running
-        text: "Looking for pets…"
-        color: Qt.darker(root.bar.foreground, 1.4)
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.bodySmall
-      }
-
-      Repeater {
+      GridView {
+        id: petGrid
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: petPickerTitle.bottom
+        anchors.topMargin: Style.spacing.md
+        anchors.bottom: parent.bottom
+        cellWidth: width / 3
+        cellHeight: Style.space(104)
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {
+          policy: ScrollBar.AsNeeded
+        }
         model: root.availablePets
 
-        delegate: Rectangle {
-          id: petRow
+        delegate: Button {
+          id: petTile
           required property var modelData
-          width: petList.width
-          height: Style.space(32)
-          radius: Style.spacing.labelGap
-          color: petMouse.containsMouse
-            ? Style.normalFillFor(root.bar.foreground, Color.accent)
-            : "transparent"
+          width: GridView.view.cellWidth - Style.spacing.sm
+          height: GridView.view.cellHeight - Style.spacing.sm
+          selected: String(root.configuredPetPath) === String(petTile.modelData.id)
+          bordered: true
+          focusable: true
+          onClicked: root.selectPet(petTile.modelData.id)
 
-          readonly property bool selected: String(root.configuredPetPath) === String(modelData.id)
+          Item {
+            id: petPreview
+            width: Style.space(58)
+            height: width * 208 / 192
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: Style.spacing.sm
+            clip: true
+
+            Image {
+              width: petPreview.width * 8
+              height: petPreview.height * 9
+              x: -(root.currentFrame % 6) * petPreview.width
+              y: 0
+              source: petTile.modelData.spritesheet
+              cache: true
+              smooth: false
+              mipmap: false
+              asynchronous: true
+            }
+          }
 
           Text {
             anchors.left: parent.left
-            anchors.right: checkmark.left
-            anchors.leftMargin: Style.space(8)
-            anchors.verticalCenter: parent.verticalCenter
-            text: petRow.modelData.name
-            color: root.bar.foreground
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.body
-            elide: Text.ElideRight
-          }
-
-          Text {
-            id: checkmark
             anchors.right: parent.right
-            anchors.rightMargin: Style.space(8)
-            anchors.verticalCenter: parent.verticalCenter
-            text: petRow.selected ? "✓" : ""
+            anchors.bottom: parent.bottom
+            anchors.margins: Style.spacing.sm
+            text: petTile.modelData.name
+              + (petTile.modelData.id !== ""
+                  && String(petTile.modelData.name).toLowerCase() !== String(petTile.modelData.id).toLowerCase()
+                ? " (" + petTile.modelData.id + ")" : "")
             color: root.bar.foreground
             font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.body
-          }
-
-          MouseArea {
-            id: petMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.selectPet(petRow.modelData.id)
+            font.pixelSize: Style.font.bodySmall
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
           }
         }
       }
