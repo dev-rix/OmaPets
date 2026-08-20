@@ -3,7 +3,7 @@
   "id": "omapets",
   "name": "OmaPets",
   "version": "0.2.3",
-  "author": "OmaPets contributors",
+  "author": "Wei Zhu <yesmeck@gmail.com>",
   "license": "MIT",
   "description": "An animated Codex-compatible pet that reflects coding-agent activity in the Omarchy top bar.",
   "kinds": ["bar-widget"],
