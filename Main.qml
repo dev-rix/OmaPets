@@ -55,7 +55,7 @@ BarWidget {
   readonly property string convertedSheetPath: cacheHome + "/omarpets/spritesheet.png"
   readonly property string previewHome: cacheHome + "/omarpets/previews"
   readonly property string configuredPetPath: String(setting("petPath", ""))
-  readonly property string petsHome: home + "/.config/omarpets/pets"
+  readonly property string petsHome: home + "/.config/omapets/pets"
   readonly property string resolvedPetPath: resolvePetPath(configuredPetPath)
   readonly property url petManifestUrl: configuredPetPath === "" || resolvedPetPath === ""
     ? "" : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"

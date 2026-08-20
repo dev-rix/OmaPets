@@ -29,7 +29,7 @@ npx omapets https://openpets.dev/pets/player-05-b28eec8e
 
 Quote Codex Pets URLs so the shell preserves the `#` route.
 
-Pets are installed into `~/.config/omarpets/pets/<pet-id>` and appear in the
+Pets are installed into `~/.config/omapets/pets/<pet-id>` and appear in the
 right-click picker. Existing pet folders are never overwritten. Use
 `--dir <path>` to choose another destination.
 

@@ -157,7 +157,7 @@ export async function installPet(petUrl, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch
   if (typeof fetchImpl !== "function") throw new Error("This command requires Node.js 20 or newer")
 
-  const petsDir = resolve(options.petsDir || join(homedir(), ".config", "omarpets", "pets"))
+  const petsDir = resolve(options.petsDir || join(homedir(), ".config", "omapets", "pets"))
 
   let petJsonUrl
   let spritesheetUrl
