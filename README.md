@@ -12,23 +12,25 @@ OmarPets is an Omarchy top-bar plugin that renders any Codex-compatible pet as a
 
 ## Install
 
+Install and enable OmarPets, then add its Codex lifecycle hooks:
+
 ```bash
-omarchy plugin add https://github.com/YOUR-USER/omarpets --enable
+omarchy plugin add https://github.com/yesmeck/omarpets.git --enable --yes && \
+  ~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
 ```
+
+This places the widget in the middle section of the bar by default. Codex will
+ask you to trust the installed commands the next time it starts; inspect and
+approve them with `/hooks`.
 
 For a local checkout:
 
 ```bash
-omarchy plugin add "$(pwd)" --enable
+omarchy plugin add "$(pwd)" --enable --yes && \
+  ~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
 ```
 
 Automatic detection follows the agent selected by `omarchy-default-agent`. Explicit lifecycle events are the primary status source, recent session activity is the fallback, and process presence is used only when neither is available.
-
-For precise Codex status, install the lifecycle hooks once:
-
-```bash
-~/.config/omarchy/plugins/wei.omarpets/bin/install-codex-hooks
-```
 
 The installer adds commands alongside existing hooks without replacing them. Codex will ask you to trust the new commands when it next starts. The hooks report prompt submission, tool activity, permission requests, completion, and session boundaries through a small atomic state file.
 
