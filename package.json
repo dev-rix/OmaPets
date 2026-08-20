@@ -1,0 +1,27 @@
+{
+  "name": "omarpets",
+  "version": "0.1.0",
+  "description": "Install Petdex pets for the OmarPets Omarchy widget",
+  "type": "module",
+  "bin": {
+    "omarpets": "bin/omarpets.js"
+  },
+  "exports": "./src/pet-installer.js",
+  "files": [
+    "bin/omarpets.js",
+    "src/pet-installer.js"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "omarchy",
+    "petdex",
+    "codex",
+    "cli"
+  ],
+  "license": "MIT"
+}
