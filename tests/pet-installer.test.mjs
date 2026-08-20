@@ -56,24 +56,25 @@ test("downloads a pet package into the OmarPets layout", async () => {
   )
 })
 
-test("uses a safe manifest ID when it differs from the provider URL slug", async () => {
+test("normalizes the manifest ID for the installation directory", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const manifestUrl = "https://test.invalid/manifest"
   const fetchImpl = async url => {
     if (url === manifestUrl)
       return Response.json([{ slug: "kabi", petJsonUrl: "https://test.invalid/pet", spritesheetUrl: "https://test.invalid/sprite" }])
     if (url === "https://test.invalid/pet")
-      return Response.json({ id: "other", spritesheetPath: "spritesheet.webp" })
+      return Response.json({ id: "Other Pet", spritesheetPath: "spritesheet.webp" })
     return new Response(new Uint8Array([1]))
   }
 
   const installed = await installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl })
-  assert.equal(installed.slug, "other")
+  assert.equal(installed.slug, "other-pet")
   assert.equal(installed.sourceSlug, "kabi")
-  assert.equal(installed.destination, join(petsDir, "other"))
+  assert.equal(installed.destination, join(petsDir, "other-pet"))
+  assert.equal(JSON.parse(await readFile(join(petsDir, "other-pet", "pet.json"), "utf8")).id, "Other Pet")
 })
 
-test("rejects an unsafe manifest ID", async () => {
+test("normalizes a path-like manifest ID without escaping the pets directory", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const manifestUrl = "https://test.invalid/manifest"
   const fetchImpl = async url => {
@@ -84,10 +85,8 @@ test("rejects an unsafe manifest ID", async () => {
     return new Response(new Uint8Array([1]))
   }
 
-  await assert.rejects(
-    installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl }),
-    /safe lowercase slug/,
-  )
+  const installed = await installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl })
+  assert.equal(installed.destination, join(petsDir, "escape"))
 })
 
 test("downloads a pet from Codex Pets into the OmarPets layout", async () => {

@@ -71,12 +71,20 @@ function validatePetJson(bytes) {
 
   const petId = String(pet.id || "")
   const spritesheetPath = String(pet.spritesheetPath || "")
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(petId))
-    throw new Error("pet.json ID must be a safe lowercase slug")
+  if (!petId.trim()) throw new Error("pet.json must include an ID")
   if (basename(spritesheetPath) !== spritesheetPath || !/^spritesheet\.(webp|png)$/i.test(spritesheetPath))
     throw new Error("pet.json must reference spritesheet.webp or spritesheet.png")
 
   return { pet, petId, spritesheetPath }
+}
+
+function directorySlug(petId, sourceSlug) {
+  const normalized = String(petId)
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return normalized || sourceSlug
 }
 
 export async function installPet(petUrl, options = {}) {
@@ -121,7 +129,8 @@ export async function installPet(petUrl, options = {}) {
       download(spritesheetUrl, fetchImpl),
     ])
     const { pet, petId, spritesheetPath } = validatePetJson(petJsonBytes)
-    destination = join(petsDir, petId)
+    const installedSlug = directorySlug(petId, slug)
+    destination = join(petsDir, installedSlug)
 
     try {
       await stat(destination)
@@ -137,7 +146,7 @@ export async function installPet(petUrl, options = {}) {
     await rename(stagingDir, destination)
 
     return {
-      slug: petId,
+      slug: installedSlug,
       sourceSlug: slug,
       displayName: String(pet.displayName || pet.id),
       destination,
