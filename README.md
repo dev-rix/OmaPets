@@ -48,13 +48,19 @@ Left-, middle-, and right-click the pet to preview working, success, and error a
 
 ## Use another Codex pet
 
-Install a pet into `~/.codex/pets/<pet-id>` and set the plugin's `petPath`:
+Install a pet into `~/.config/omarpets/pets/<pet-id>` and set the plugin's
+`petPath` to its ID:
 
 ```bash
-omarchy bar set wei.omarpets petPath '~/.codex/pets/my-pet'
+omarchy bar set wei.omarpets petPath my-pet
 ```
 
-The folder must contain `pet.json` and the PNG or WebP named by its `spritesheetPath`. WebP sheets are converted into the OmarPets cache at runtime for Qt builds without WebP support. The first nine rows must follow the Codex pet state contract. ImageMagick's `magick` command must be installed for WebP conversion.
+You can also set `petPath` to an absolute path or a path beginning with `~/`.
+The folder must contain `pet.json` and the PNG or WebP named by its
+`spritesheetPath`. WebP sheets are converted into the OmarPets cache at runtime
+for Qt builds without WebP support. The first nine rows must follow the Codex
+pet state contract. ImageMagick's `magick` command must be installed for WebP
+conversion.
 
 Useful settings:
 

@@ -51,9 +51,11 @@ BarWidget {
   readonly property string cacheHome: Quickshell.env("XDG_CACHE_HOME") || home + "/.cache"
   readonly property string convertedSheetPath: cacheHome + "/omarpets/spritesheet.png"
   readonly property string configuredPetPath: String(setting("petPath", ""))
+  readonly property string petsHome: home + "/.config/omarpets/pets"
+  readonly property string resolvedPetPath: resolvePetPath(configuredPetPath)
   readonly property url petManifestUrl: configuredPetPath === ""
     ? Qt.resolvedUrl("assets/ponyta/pet.json")
-    : "file://" + expandHome(configuredPetPath).replace(/\/$/, "") + "/pet.json"
+    : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
   property string petName: "Ponyta"
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
@@ -66,6 +68,13 @@ BarWidget {
     var value = String(path || "")
     if (value === "~") return home
     if (value.indexOf("~/") === 0) return home + value.slice(1)
+    return value
+  }
+
+  function resolvePetPath(path) {
+    var value = expandHome(path)
+    if (value !== "" && value.indexOf("/") < 0)
+      return petsHome + "/" + value
     return value
   }
 
