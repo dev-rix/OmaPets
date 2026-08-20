@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/be318ba0-94ea-4dd5-a315-9245acc02349
 Install and enable OmaPets:
 
 ```bash
-omarchy plugin add https://github.com/yesmeck/omarpets.git --enable --yes
+omarchy plugin add https://github.com/yesmeck/OmaPets.git --enable --yes
 ```
 
 Pets are installed separately. Until one is installed and selected, the bar

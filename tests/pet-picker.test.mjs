@@ -47,7 +47,7 @@ assert.match(
 
 assert.match(
   qml,
-  /command:\s*\["xdg-open",\s*"https:\/\/github\.com\/yesmeck\/OmarPets#install-a-pet"\]/,
+  /command:\s*\["xdg-open",\s*"https:\/\/github\.com\/yesmeck\/OmaPets#install-a-pet"\]/,
   "the download instructions must link to the README",
 )
 

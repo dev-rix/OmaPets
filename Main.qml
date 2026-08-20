@@ -283,7 +283,7 @@ BarWidget {
   Process {
     id: readmeOpener
     running: false
-    command: ["xdg-open", "https://github.com/yesmeck/OmarPets#install-a-pet"]
+    command: ["xdg-open", "https://github.com/yesmeck/OmaPets#install-a-pet"]
   }
 
   Process {
