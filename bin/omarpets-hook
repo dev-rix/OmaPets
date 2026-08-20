@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+event="${1:-}"
+agent="${2:-codex}"
+
+case "$event" in
+  session-start|session-end|prompt|tool-start|tool-end|permission|stop) ;;
+  *) exit 0 ;;
+esac
+
+payload=$(cat)
+case "$event" in
+  prompt|tool-start|tool-end) state="working" ;;
+  permission) state="waiting" ;;
+  stop) state="success" ;;
+  session-start|session-end) state="idle" ;;
+esac
+
+detail=$(printf '%s' "$payload" | jq -r '
+  .tool_name // .toolName // .tool.name // .notification_type
+  // .reason // empty
+' 2>/dev/null || true)
+
+state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+state_dir="$state_home/omarchy/omarpets"
+state_file="$state_dir/status.json"
+mkdir -p "$state_dir"
+
+tmp_file="$state_file.$$"
+trap 'rm -f "$tmp_file"' EXIT
+jq -n \
+  --arg agent "$agent" \
+  --arg state "$state" \
+  --arg event "$event" \
+  --arg detail "$detail" \
+  --argjson updatedAtEpoch "$(date +%s)" \
+  '{
+    schemaVersion: 1,
+    agent: $agent,
+    state: $state,
+    event: $event,
+    detail: $detail,
+    updatedAtEpoch: $updatedAtEpoch
+  }' >"$tmp_file"
+mv -f "$tmp_file" "$state_file"
+trap - EXIT

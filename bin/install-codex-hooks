@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_file="${CODEX_HOME:-$HOME/.codex}/config.toml"
+installed_hook="$HOME/.config/omarchy/plugins/wei.omarpets/bin/omarpets-hook"
+if [[ -x $installed_hook ]]; then
+  hook_command="$installed_hook"
+else
+  hook_command="$(cd -- "$(dirname -- "$0")" && pwd)/omarpets-hook"
+fi
+
+mkdir -p "$(dirname -- "$config_file")"
+touch "$config_file"
+
+if grep -Fq "$hook_command" "$config_file"; then
+  echo "OmarPets Codex hooks are already installed."
+  exit 0
+fi
+
+backup_file="$config_file.bak.$(date +%Y%m%d%H%M%S)"
+cp -p "$config_file" "$backup_file"
+
+cat >>"$config_file" <<EOF
+
+# OmarPets lifecycle integration
+[[hooks.SessionStart]]
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "$hook_command session-start codex"
+
+[[hooks.UserPromptSubmit]]
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = "$hook_command prompt codex"
+
+[[hooks.PreToolUse]]
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "$hook_command tool-start codex"
+
+[[hooks.PostToolUse]]
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "$hook_command tool-end codex"
+
+[[hooks.PermissionRequest]]
+[[hooks.PermissionRequest.hooks]]
+type = "command"
+command = "$hook_command permission codex"
+
+[[hooks.Stop]]
+[[hooks.Stop.hooks]]
+type = "command"
+command = "$hook_command stop codex"
+
+[[hooks.SessionEnd]]
+[[hooks.SessionEnd.hooks]]
+type = "command"
+command = "$hook_command session-end codex"
+EOF
+
+echo "Installed OmarPets lifecycle hooks in $config_file"
+echo "Backup: $backup_file"
+echo "Codex will ask you to trust the new commands the next time it starts."

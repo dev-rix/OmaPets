@@ -38,6 +38,7 @@ BarWidget {
   property string activityState: "idle"
   property string activityDetail: ""
   property string detectedState: "idle"
+  property string detectedAgent: ""
   property double overrideUntil: 0
   property int currentFrame: 0
   property int imageRevision: 0
@@ -107,6 +108,27 @@ BarWidget {
     if (activityState !== detectedState) setActivity(detectedState, "", 0)
   }
 
+  function applyDetectorOutput(output) {
+    var parts = String(output || "").trim().split(":")
+    detectedAgent = parts.length > 1 ? parts[0] : ""
+    applyDetectedState(parts.length > 1 ? parts[1] : parts[0])
+  }
+
+  function agentLabel(agent) {
+    var labels = {
+      "codex": "Codex",
+      "claude": "Claude Code",
+      "opencode": "OpenCode",
+      "gemini": "Gemini",
+      "copilot": "GitHub Copilot",
+      "crush": "Crush",
+      "grok": "Grok",
+      "omp": "Oh My Pi",
+      "pi": "Pi"
+    }
+    return labels[agent] || agent
+  }
+
   function reloadPet() { petManifest.reload() }
   onPetManifestUrlChanged: reloadPet()
 
@@ -166,18 +188,34 @@ BarWidget {
     running: false
     command: ["sh", "-c",
       "window=$1; home=$2; "
+      + "agent=$(omarchy-default-agent 2>/dev/null); "
+      + "[ -n \"$agent\" ] || { printf ':idle'; exit; }; "
+      + "state_home=${XDG_STATE_HOME:-$home/.local/state}; "
+      + "status_file=\"$state_home/omarchy/omarpets/status.json\"; "
+      + "if [ -f \"$status_file\" ]; then "
+      + "hook_agent=$(jq -r '.agent // empty' \"$status_file\" 2>/dev/null); "
+      + "hook_state=$(jq -r '.state // empty' \"$status_file\" 2>/dev/null); "
+      + "hook_time=$(jq -r '(.updatedAtEpoch | tonumber?) // 0' \"$status_file\" 2>/dev/null); "
+      + "age=$(($(date +%s) - hook_time)); "
+      + "max_age=14400; [ \"$hook_state\" = success ] && max_age=8; "
+      + "if [ \"$hook_agent\" = \"$agent\" ] && [ $age -ge 0 ] && [ $age -le $max_age ]; then "
+      + "printf '%s:%s' \"$agent\" \"$hook_state\"; exit; fi; fi; "
       + "recent=0; "
-      + "for dir in \"${CODEX_HOME:-$home/.codex}/sessions\" \"${CLAUDE_CONFIG_DIR:-$home/.claude}/projects\"; do "
-      + "[ -d \"$dir\" ] && find \"$dir\" -type f -newermt \"$window seconds ago\" -print -quit 2>/dev/null | grep -q . && recent=1; "
-      + "done; "
+      + "case \"$agent\" in "
+      + "codex) activity_dir=\"${CODEX_HOME:-$home/.codex}/sessions\" ;; "
+      + "claude) activity_dir=\"${CLAUDE_CONFIG_DIR:-$home/.claude}/projects\" ;; "
+      + "*) activity_dir= ;; esac; "
+      + "[ -n \"$activity_dir\" ] && [ -d \"$activity_dir\" ] "
+      + "&& find \"$activity_dir\" -type f -newermt \"$window seconds ago\" -print -quit 2>/dev/null | grep -q . && recent=1; "
+      + "printf '%s:' \"$agent\"; "
       + "if [ $recent -eq 1 ]; then printf working; "
-      + "elif pgrep -f '(^|/)(codex|claude)( |$)' >/dev/null 2>&1; then printf waiting; "
+      + "elif pgrep -f \"(^|/)$agent( |$)\" >/dev/null 2>&1; then printf waiting; "
       + "else printf idle; fi",
       "omarpets-detect", String(root.activeWindowSec), root.home]
 
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.applyDetectedState(text.trim())
+      onStreamFinished: root.applyDetectorOutput(text)
     }
   }
 
@@ -231,7 +269,9 @@ BarWidget {
   }
 
   ToolTip.visible: hover.hovered
-  ToolTip.text: petName + " · " + (stateLabels[activityState] || activityState)
+  ToolTip.text: petName
+    + (detectedAgent === "" ? "" : " · " + agentLabel(detectedAgent))
+    + " · " + (stateLabels[activityState] || activityState)
     + (activityDetail === "" ? "" : "\n" + activityDetail)
 
   HoverHandler { id: hover }
