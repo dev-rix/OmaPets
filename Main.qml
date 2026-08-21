@@ -46,6 +46,7 @@ BarWidget {
   property bool petAvailable: false
   property int atlasRows: 9
   property var availablePets: []
+  property string panelLogo: "OmaPets"
 
   readonly property real petScale: Number(setting("scale", 0.8))
   readonly property int frameInterval: Math.max(60, Number(setting("frameIntervalMs", 140)))
@@ -228,6 +229,12 @@ BarWidget {
   function reloadPet() { petManifest.reload() }
 
   FileView {
+    path: Qt.resolvedUrl("assets/logo.txt")
+    printErrors: false
+    onLoaded: root.panelLogo = String(text() || "OmaPets").replace(/\s+$/, "")
+  }
+
+  FileView {
     id: petManifest
     path: root.petManifestUrl
     watchChanges: true
@@ -394,7 +401,7 @@ BarWidget {
     owner: root
     open: root.petPickerOpen
     contentWidth: petPicker.fittedContentWidth(Style.space(360))
-    contentHeight: Style.space(344)
+    contentHeight: Style.space(400)
 
     Item {
       id: petPickerContent
@@ -405,13 +412,28 @@ BarWidget {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: petActionRow.height
+        height: omapetsLogo.implicitHeight + Style.spacing.md + petActionRow.height
+
+        Text {
+          id: omapetsLogo
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          text: root.panelLogo
+          color: root.bar.foreground
+          font.family: "monospace"
+          font.pixelSize: Style.space(4)
+          font.bold: true
+          horizontalAlignment: Text.AlignHCenter
+          textFormat: Text.PlainText
+        }
 
         Row {
           id: petActionRow
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.top: parent.top
+          anchors.top: omapetsLogo.bottom
+          anchors.topMargin: Style.spacing.md
           height: installPetButton.implicitHeight
           spacing: Style.spacing.sm
 
