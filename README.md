@@ -17,14 +17,15 @@ shows a placeholder. Right-click it to open the pet picker.
 
 ## Install a pet
 
-The included Node.js package supports [Petdex](https://petdex.dev/),
+The installer bundled with the plugin supports [Petdex](https://petdex.dev/),
 [Codex Pets](https://codex-pets.net/), and [OpenPets](https://openpets.dev/)
-URLs:
+URLs. Using the bundled installer ensures the code being run is the same
+version that was reviewed and installed with the plugin:
 
 ```bash
-npx omapets https://petdex.dev/pets/kabi
-npx omapets 'https://codex-pets.net/#/pets/dario'
-npx omapets https://openpets.dev/pets/player-05-b28eec8e
+~/.config/omarchy/plugins/omapets/bin/omapets.js https://petdex.dev/pets/kabi
+~/.config/omarchy/plugins/omapets/bin/omapets.js 'https://codex-pets.net/#/pets/dario'
+~/.config/omarchy/plugins/omapets/bin/omapets.js https://openpets.dev/pets/player-05-b28eec8e
 ```
 
 Quote Codex Pets URLs so the shell preserves the `#` route.
