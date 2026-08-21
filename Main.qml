@@ -44,6 +44,7 @@ BarWidget {
   property int imageRevision: 0
   property bool petPickerOpen: false
   property bool petAvailable: false
+  property int atlasRows: 9
   property var availablePets: []
 
   readonly property real petScale: Number(setting("scale", 0.8))
@@ -119,10 +120,12 @@ BarWidget {
       if (id === "") continue
       var name = String(fields.shift() || id).trim()
       fields.shift()
+      var rows = Number(fields.shift() || 9) === 11 ? 11 : 9
       var previewSheet = "file://" + previewHome + "/" + id + ".png"
       pets.push({
         id: id,
         name: name,
+        atlasRows: rows,
         spritesheet: previewSheet
       })
     }
@@ -216,6 +219,7 @@ BarWidget {
     onLoadFailed: {
       root.petAvailable = false
       root.petName = "No pet installed"
+      root.atlasRows = 9
       root.spritesheetUrl = ""
     }
     onLoaded: {
@@ -225,6 +229,7 @@ BarWidget {
         if (sheet.indexOf("..") >= 0 || sheet.indexOf("/") === 0)
           throw new Error("spritesheetPath must stay inside the pet folder")
         root.petName = String(pet.displayName || pet.id || "Pet")
+        root.atlasRows = Number(pet.spriteVersionNumber || 1) >= 2 ? 11 : 9
         var manifestUrl = String(root.petManifestUrl)
         var slash = manifestUrl.lastIndexOf("/")
         root.loadSpritesheet(manifestUrl.slice(0, slash + 1) + sheet)
@@ -232,6 +237,7 @@ BarWidget {
         root.imageRevision++
       } catch (error) {
         root.petAvailable = false
+        root.atlasRows = 9
         root.spritesheetUrl = ""
         console.warn("omarpets: invalid pet manifest", error)
       }
@@ -319,7 +325,7 @@ BarWidget {
     Image {
       id: atlas
       width: frameViewport.frameWidth * 8
-      height: frameViewport.frameHeight * 9
+      height: frameViewport.frameHeight * root.atlasRows
       x: -root.currentFrame * frameViewport.frameWidth
       y: -root.stateRows[root.activityState] * frameViewport.frameHeight
       source: root.spritesheetUrl
@@ -436,7 +442,7 @@ BarWidget {
 
             Image {
               width: petPreview.width * 8
-              height: petPreview.height * 9
+              height: petPreview.height * petTile.modelData.atlasRows
               x: -(root.currentFrame % 6) * petPreview.width
               y: 0
               source: petTile.modelData.spritesheet
