@@ -19,7 +19,8 @@ find "$pets_dir" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\n' 2
         magick "$pet_dir/$sheet" "$preview" || continue
       fi
 
-      name=$(jq -r '.displayName // .id // empty' "$pet_dir/pet.json" 2>/dev/null | tr '\t\r\n' '   ' || true)
+      name=$(jq -r '(.displayName // .id // "") | tostring | gsub("[\u0000-\u001f\u007f]"; " ")' \
+        "$pet_dir/pet.json" 2>/dev/null || true)
       [[ -n "$name" ]] || name="$id"
       printf '%s\t%s\t%s\n' "$id" "$name" "$sheet"
     done

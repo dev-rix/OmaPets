@@ -456,6 +456,7 @@ BarWidget {
               + (petTile.modelData.id !== ""
                   && String(petTile.modelData.name).toLowerCase() !== String(petTile.modelData.id).toLowerCase()
                 ? " (" + petTile.modelData.id + ")" : "")
+            textFormat: Text.PlainText
             color: root.bar.foreground
             font.family: root.bar.fontFamily
             font.pixelSize: Style.font.bodySmall

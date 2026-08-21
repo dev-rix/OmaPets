@@ -94,4 +94,10 @@ assert.match(
   "pet labels must expose the directory ID as well as the display name",
 )
 
+assert.match(
+  qml,
+  /Text\s*\{[\s\S]*?text:\s*petTile\.modelData\.name[\s\S]*?textFormat:\s*Text\.PlainText/,
+  "provider-controlled pet names must never be interpreted as rich text",
+)
+
 console.log("Tailscale-style pet panel animates every discovered pet and exposes its directory ID")
