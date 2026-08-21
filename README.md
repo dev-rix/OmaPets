@@ -24,8 +24,7 @@ the pet picker refreshes automatically.
 
 The bundled Bash installer supports [Petdex](https://petdex.dev/),
 [Codex Pets](https://codex-pets.net/), and [OpenPets](https://openpets.dev/).
-It uses the standard Omarchy tools `bash`, `curl`, and `jq`; Node.js and npm are
-not required.
+It uses the standard Omarchy tools `bash`, `curl`, and `jq`.
 
 The installer is versioned with the plugin, validates provider hosts and HTTPS
 redirects, and never overwrites an existing pet directory.
