@@ -405,26 +405,13 @@ BarWidget {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: petPickerTitle.implicitHeight + Style.spacing.md + petActionRow.height
-
-        Text {
-          id: petPickerTitle
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
-          text: petScanner.running ? "Finding pets…" : "Choose pet"
-          color: root.bar.foreground
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: true
-        }
+        height: petActionRow.height
 
         Row {
           id: petActionRow
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.top: petPickerTitle.bottom
-          anchors.topMargin: Style.spacing.md
+          anchors.top: parent.top
           height: installPetButton.implicitHeight
           spacing: Style.spacing.sm
 
