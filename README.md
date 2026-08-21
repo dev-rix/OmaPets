@@ -26,11 +26,12 @@ terminal and select your new pet from the panel.
 ## Agent status
 
 OmaPets detects agent activity automatically. For more accurate status changes,
-open the panel and select **Install hooks**. Use Space to select your coding
+open the panel and select **Agent hooks**. Use Space to select your coding
 agents, then press Enter. Restart any open agent sessions after installation.
 
 ## Usage
 
 Right-click the pet to list installed pets and switch between them. The choice
-is saved in the bar configuration. Left-click previews working and middle-click
-previews success. Hover for the current state and detail.
+is saved in the bar configuration. Select **Open folder** to browse the installed
+pet files. Left-click previews working and middle-click previews success. Hover
+for the current state and detail.

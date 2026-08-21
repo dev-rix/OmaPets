@@ -66,8 +66,8 @@ assert.match(
 
 assert.match(
   qml,
-  /contentHeight:\s*Style\.space\(320\)/,
-  "the panel must use a fixed 320-pixel height",
+  /contentHeight:\s*Style\.space\(344\)/,
+  "the panel must use a fixed 344-pixel height",
 )
 
 assert.match(
@@ -78,8 +78,26 @@ assert.match(
 
 assert.match(
   qml,
-  /Button\s*\{\s*id:\s*installHooksButton[\s\S]*?text:\s*"Install hooks"[\s\S]*?onClicked:\s*root\.openAgentHookInstaller\(\)/,
+  /Button\s*\{\s*id:\s*installHooksButton[\s\S]*?text:\s*"Agent hooks"[\s\S]*?onClicked:\s*root\.openAgentHookInstaller\(\)/,
   "the pet panel must expose interactive agent hook installation",
+)
+
+assert.match(
+  qml,
+  /Row\s*\{\s*id:\s*petActionRow[\s\S]*?id:\s*installPetButton[\s\S]*?id:\s*openPetsFolderButton[\s\S]*?id:\s*installHooksButton/,
+  "pet management actions must be grouped in one equal-width toolbar",
+)
+
+assert.match(
+  qml,
+  /Button\s*\{\s*id:\s*openPetsFolderButton[\s\S]*?text:\s*"Open folder"[\s\S]*?onClicked:\s*root\.openPetsFolder\(\)/,
+  "the pet panel must expose the pets folder",
+)
+
+assert.match(
+  qml,
+  /id:\s*petFolderCreator[\s\S]*?command:\s*\["mkdir",\s*"-p",\s*root\.petsHome\][\s\S]*?Quickshell\.execDetached\(\["xdg-open",\s*root\.petsHome\]\)/,
+  "opening the pets folder must create it first and use the desktop file manager",
 )
 
 assert.match(

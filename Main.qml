@@ -121,6 +121,12 @@ BarWidget {
     root.bar.run(terminal)
   }
 
+  function openPetsFolder() {
+    if (petFolderCreator.running) return
+    root.close()
+    petFolderCreator.running = true
+  }
+
   function parseAvailablePets(output) {
     var pets = []
     var lines = String(output || "").trim().split("\n")
@@ -283,6 +289,16 @@ BarWidget {
     }
   }
 
+  Process {
+    id: petFolderCreator
+    running: false
+    command: ["mkdir", "-p", root.petsHome]
+    onExited: function(exitCode) {
+      if (exitCode === 0) Quickshell.execDetached(["xdg-open", root.petsHome])
+      else console.warn("omarpets: could not create pets folder", root.petsHome)
+    }
+  }
+
   IpcHandler {
     target: "omapets"
 
@@ -378,7 +394,7 @@ BarWidget {
     owner: root
     open: root.petPickerOpen
     contentWidth: petPicker.fittedContentWidth(Style.space(360))
-    contentHeight: Style.space(320)
+    contentHeight: Style.space(344)
 
     Item {
       id: petPickerContent
@@ -389,41 +405,42 @@ BarWidget {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: Math.max(petPickerTitle.implicitHeight, installPetButton.implicitHeight,
-          installHooksButton.implicitHeight)
+        height: petActionRow.height
 
-        Text {
-          id: petPickerTitle
+        Row {
+          id: petActionRow
           anchors.left: parent.left
-          anchors.right: installHooksButton.left
-          anchors.rightMargin: Style.spacing.md
-          anchors.verticalCenter: parent.verticalCenter
-          text: petScanner.running ? "Finding pets…" : "Choose pet"
-          color: root.bar.foreground
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: true
-        }
-
-        Button {
-          id: installHooksButton
-          anchors.right: installPetButton.left
-          anchors.rightMargin: Style.spacing.sm
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Install hooks"
-          bordered: true
-          focusable: true
-          onClicked: root.openAgentHookInstaller()
-        }
-
-        Button {
-          id: installPetButton
           anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Install pet"
-          bordered: true
-          focusable: true
-          onClicked: root.openPetInstaller()
+          anchors.top: parent.top
+          height: installPetButton.implicitHeight
+          spacing: Style.spacing.sm
+
+          Button {
+            id: installPetButton
+            width: (petActionRow.width - petActionRow.spacing * 2) / 3
+            text: "Install pet"
+            bordered: true
+            focusable: true
+            onClicked: root.openPetInstaller()
+          }
+
+          Button {
+            id: openPetsFolderButton
+            width: installPetButton.width
+            text: "Open folder"
+            bordered: true
+            focusable: true
+            onClicked: root.openPetsFolder()
+          }
+
+          Button {
+            id: installHooksButton
+            width: installPetButton.width
+            text: "Agent hooks"
+            bordered: true
+            focusable: true
+            onClicked: root.openAgentHookInstaller()
+          }
         }
       }
 
