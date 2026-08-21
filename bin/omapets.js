@@ -14,10 +14,6 @@ Example:
   omapets https://codex-pets.net/#/pets/dario
   omapets https://openpets.dev/pets/player-05-b28eec8e`
 
-const interactiveBanner = `╭──────────────────────────╮
-│      🐾  OmaPets  🐾      │
-╰──────────────────────────╯`
-
 const interactiveHelp = `Install a pet
 
 Paste a pet page URL from one of these providers:
@@ -52,8 +48,6 @@ async function promptForPetUrl() {
   if (!process.stdin.isTTY || !process.stdout.isTTY)
     throw new Error("A Petdex, Codex Pets, or OpenPets URL is required")
 
-  console.log(interactiveBanner)
-  console.log()
   console.log(interactiveHelp)
   console.log()
   const prompt = createInterface({ input: process.stdin, output: process.stdout })

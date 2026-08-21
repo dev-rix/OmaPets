@@ -22,8 +22,6 @@ test("does not wait for a prompt without an interactive terminal", () => {
 })
 
 test("shows provider help before the interactive URL prompt", () => {
-  assert.match(cliSource, /interactiveBanner = `[^`]*OmaPets[^`]*`/)
-  assert.match(cliSource, /console\.log\(interactiveBanner\)[\s\S]*?console\.log\(interactiveHelp\)/)
   assert.match(cliSource, /const interactiveHelp = `Install a pet[\s\S]*?Petdex:[\s\S]*?Codex Pets:[\s\S]*?OpenPets:/)
   assert.match(cliSource, /console\.log\(interactiveHelp\)[\s\S]*?prompt\.question\("Pet URL: "\)/)
 })
