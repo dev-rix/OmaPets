@@ -72,8 +72,10 @@ test("installs a Petdex pet with Bash and preserves the destination", async () =
   })
 
   assert.equal(result.status, 0, result.stderr)
-  assert.match(result.stdout, /Installed Kabi\n/)
-  assert.match(result.stdout, new RegExp(`Pet path: ${setup.petsDir}/kabi-pet`))
+  assert.match(result.stdout, /\[omapets\] Installing petdex pet kabi/)
+  assert.match(result.stdout, /\[omapets\] Fetching https:\/\/petdex\.dev\/api\/manifest/)
+  assert.match(result.stdout, /\[omapets\] Validating downloaded pet package/)
+  assert.match(result.stdout, new RegExp(`Installed Kabi to ${setup.petsDir}/kabi-pet`))
   assert.equal(JSON.parse(await readFile(join(setup.petsDir, "kabi-pet/pet.json"), "utf8")).id, "Kabi Pet")
   assert.equal(await readFile(join(setup.petsDir, "kabi-pet/spritesheet.webp"), "utf8"), "RIFF")
 
@@ -169,7 +171,7 @@ test("has interactive help without requiring Node or npm", async () => {
   assert.equal(help.status, 0, help.stderr)
   assert.match(help.stdout, /^Usage:\n  omapets$/m)
   assert.match(source, /interactive_help[\s\S]*Petdex:[\s\S]*Codex Pets:[\s\S]*OpenPets:/)
-  assert.match(source, /Pet path: %s/)
+  assert.match(source, /Installed %s to %s/)
   assert.match(source, /Press any key to close…/)
   assert.doesNotMatch(source, /node|npm|omapets\.js/)
 })

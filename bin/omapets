@@ -46,6 +46,10 @@ fail() {
   return 1
 }
 
+log() {
+  printf '[omapets] %s\n' "$*"
+}
+
 cleanup() {
   [[ -n ${temp_root:-} ]] && rm -rf -- "$temp_root"
 }
@@ -101,6 +105,7 @@ safe_fetch() {
 
   while :; do
     validate_download_url "$url" "$allowed" || return 1
+    log "Fetching $url"
     : >"$headers"
     status=$(curl --silent --show-error --proto '=https' --max-filesize "$MAX_FILE_BYTES" \
       --dump-header "$headers" --output "$body" --write-out '%{http_code}' -- "$url") \
@@ -113,6 +118,7 @@ safe_fetch() {
         [[ -n $location ]] || { fail "Redirect is missing a Location header: $url"; return 1; }
         next=$(resolve_redirect "$url" "$location") \
           || { fail "Redirect must use an absolute HTTPS URL or an absolute path: $location"; return 1; }
+        log "Following redirect $status to $next"
         url=$next
         ((redirects++))
         ;;
@@ -155,6 +161,7 @@ parse_pet_source() {
 
 install_petdex() {
   local manifest=$1 pet_json=$2 spritesheet=$3 fields pet_json_url spritesheet_url
+  log "Loading Petdex manifest"
   safe_fetch "$PETDEX_MANIFEST_URL" "$PETDEX_HOSTS" "$manifest" || return 1
   fields=$(jq -er --arg slug "$slug" '
     (.pets? // .) as $entries
@@ -170,6 +177,7 @@ install_petdex() {
 
 install_codex_pets() {
   local detail=$1 pet_json=$2 spritesheet=$3 spritesheet_url
+  log "Loading Codex Pets metadata"
   safe_fetch "${CODEX_PETS_API_BASE%/}/$slug" "$CODEX_PETS_HOSTS" "$detail" || return 1
   spritesheet_url=$(jq -er '.pet | select(.spritesheetUrl) | .spritesheetUrl' "$detail") \
     || { fail "Codex Pets returned incomplete metadata: $slug"; return 1; }
@@ -182,6 +190,7 @@ install_openpets() {
   [[ $slug =~ ^(.+)-[0-9a-f]{8}$ ]] \
     || { fail "OpenPets URL must end with its eight-character page fingerprint"; return 1; }
   pet_id=${BASH_REMATCH[1]}
+  log "Searching the OpenPets catalog"
   safe_fetch "$OPENPETS_SEARCH_INDEX_URL" "$OPENPETS_HOSTS" "$index" || return 1
   mapfile -t pages < <(jq -er 'select(.version == 3 and (.pages | type == "array")) | .pages[]' "$index")
   (( ${#pages[@]} > 0 )) || { fail "OpenPets returned an invalid search index"; return 1; }
@@ -226,6 +235,7 @@ normalize_id() {
 install_pet() {
   local pet_url=$1 pets_dir=$2 manifest detail pet_json downloaded_sheet pet_id sheet_path installed_slug destination staging display_name
   parse_pet_source "$pet_url" || return 1
+  log "Installing $provider pet $slug"
   mkdir -p -- "$pets_dir" || return 1
   temp_root=$(mktemp -d "${TMPDIR:-/tmp}/omarpets.XXXXXX") || return 1
   manifest="$temp_root/manifest.json"; detail="$temp_root/detail.json"
@@ -237,6 +247,7 @@ install_pet() {
     openpets) install_openpets "$manifest" "$pet_json" "$downloaded_sheet" || return 1 ;;
   esac
 
+  log "Validating downloaded pet package"
   jq -e . "$pet_json" >/dev/null 2>&1 || { fail "Pet provider returned an invalid pet.json"; return 1; }
   pet_id=$(jq -er '.id | strings | select(length > 0)' "$pet_json") \
     || { fail "pet.json must include an ID"; return 1; }
@@ -248,12 +259,13 @@ install_pet() {
   [[ ! -e $destination ]] || { fail "Pet is already installed: $destination"; return 1; }
 
   staging=$(mktemp -d "${pets_dir%/}/.${slug}.XXXXXX") || return 1
+  log "Writing pet files to $destination"
   cp -- "$pet_json" "$staging/pet.json" || { rm -rf -- "$staging"; return 1; }
   cp -- "$downloaded_sheet" "$staging/$sheet_path" || { rm -rf -- "$staging"; return 1; }
   mv -- "$staging" "$destination" || { rm -rf -- "$staging"; fail "Could not install pet at $destination"; return 1; }
 
   display_name=$(jq -r '.displayName // .id' "$pet_json")
-  printf 'Installed %s\nPet path: %s\n' "$display_name" "$destination"
+  printf 'Installed %s to %s\n' "$display_name" "$destination"
 }
 
 main() {
