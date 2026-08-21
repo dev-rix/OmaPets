@@ -381,7 +381,7 @@ BarWidget {
 
     MouseArea {
       anchors.fill: parent
-      acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+      acceptedButtons: Qt.LeftButton | Qt.MiddleButton
       hoverEnabled: true
       onClicked: function(mouse) {
         if (mouse.button === Qt.MiddleButton) {

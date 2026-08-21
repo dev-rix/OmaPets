@@ -66,8 +66,14 @@ assert.match(
 
 assert.match(
   qml,
-  /onClicked:\s*function\(mouse\)\s*\{[\s\S]*?mouse\.button\s*===\s*Qt\.MiddleButton[\s\S]*?else\s*\{[\s\S]*?root\.openPetPicker\(\)/,
+  /acceptedButtons:\s*Qt\.LeftButton\s*\|\s*Qt\.MiddleButton[\s\S]*?onClicked:\s*function\(mouse\)\s*\{[\s\S]*?mouse\.button\s*===\s*Qt\.MiddleButton[\s\S]*?else\s*\{[\s\S]*?root\.openPetPicker\(\)/,
   "left-clicking the pet must open the pet panel",
+)
+
+assert.doesNotMatch(
+  qml,
+  /acceptedButtons:[^\n]*Qt\.RightButton/,
+  "the pet must not handle right-clicks",
 )
 
 assert.doesNotMatch(
