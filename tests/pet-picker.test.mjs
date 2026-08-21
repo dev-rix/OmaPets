@@ -22,6 +22,14 @@ assert.notEqual(statSync(installerUrl).mode & 0o111, 0, "the Bash pet installer 
 
 assert.doesNotMatch(qml, /command:\s*\["sh",\s*"-c"/)
 
+assert.match(
+  qml,
+  /configHome:\s*Quickshell\.env\("XDG_CONFIG_HOME"\)\s*\|\|\s*home\s*\+\s*"\/\.config"[\s\S]*?petsHome:\s*configHome\s*\+\s*"\/omapets\/pets"/,
+  "pet discovery and folder actions must honor XDG_CONFIG_HOME with the standard fallback",
+)
+
+assert.doesNotMatch(qml, /petsHome:\s*home\s*\+\s*"\/\.config\/omapets\/pets"/)
+
 assert.doesNotMatch(
   qml,
   /statusTooltipText:\s*petName/,

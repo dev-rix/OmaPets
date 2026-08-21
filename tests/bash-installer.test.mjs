@@ -170,7 +170,10 @@ test("has interactive help without requiring Node or npm", async () => {
 
   assert.equal(help.status, 0, help.stderr)
   assert.match(help.stdout, /^Usage:\n  omapets$/m)
+  assert.match(help.stdout, /XDG_CONFIG_HOME\/omapets\/pets/)
+  assert.match(help.stdout, /falling back to ~\/\.config\/omapets\/pets/)
   assert.match(source, /interactive_help[\s\S]*Petdex:[\s\S]*Codex Pets:[\s\S]*OpenPets:/)
+  assert.match(source, /interactive_help "\$pets_dir"/)
   assert.match(source, /Installed %s to %s/)
   assert.match(source, /Press any key to close…/)
   assert.doesNotMatch(source, /node|npm|omapets\.js/)

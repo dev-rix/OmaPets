@@ -54,11 +54,12 @@ BarWidget {
   readonly property bool autoDetect: setting("autoDetect", true) !== false
   readonly property int activeWindowSec: Math.max(2, Number(setting("activeWindowSec", 8)))
   readonly property string home: Quickshell.env("HOME") || ""
+  readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || home + "/.config"
   readonly property string cacheHome: Quickshell.env("XDG_CACHE_HOME") || home + "/.cache"
   readonly property string convertedSheetPath: cacheHome + "/omarpets/spritesheet.png"
   readonly property string previewHome: cacheHome + "/omarpets/previews"
   readonly property string configuredPetPath: String(setting("petPath", ""))
-  readonly property string petsHome: home + "/.config/omapets/pets"
+  readonly property string petsHome: configHome + "/omapets/pets"
   readonly property string bundledPetPath:
     filePath(Qt.resolvedUrl("assets/pets/glitchcat"))
   readonly property string resolvedPetPath: configuredPetPath === ""

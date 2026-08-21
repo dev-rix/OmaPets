@@ -25,10 +25,14 @@ Examples:
   omapets https://petdex.dev/pets/kabi
   omapets 'https://codex-pets.net/#/pets/dario'
   omapets https://openpets.dev/pets/player-05-b28eec8e
+
+By default, pets are installed under XDG_CONFIG_HOME/omapets/pets,
+falling back to ~/.config/omapets/pets when XDG_CONFIG_HOME is unset.
 EOF
 }
 
 interactive_help() {
+  local pets_dir=${1:-"${XDG_CONFIG_HOME:-$HOME/.config}/omapets/pets"}
   cat <<'EOF'
 Install a pet
 
@@ -36,9 +40,8 @@ Paste a pet page URL from one of these providers:
   Petdex:      https://petdex.dev/pets/<pet-id>
   Codex Pets:  https://codex-pets.net/#/pets/<pet-id>
   OpenPets:    https://openpets.dev/pets/<pet-id>
-
-The pet will be installed in ~/.config/omapets/pets.
 EOF
+  printf '\nThe pet will be installed in %s.\n' "$pets_dir"
 }
 
 fail() {
@@ -287,7 +290,7 @@ main() {
     interactive=1
     clear
     printf '\033[32m'; cat "$script_dir/../assets/logo.txt"; printf '\033[0m\n'
-    interactive_help
+    interactive_help "$pets_dir"
     printf '\nPet URL: '
     IFS= read -r pet_url
     [[ -n $pet_url ]] || { fail "A pet URL is required"; return 1; }
