@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process"
 import test from "node:test"
 
 const installer = resolve("bin/install-agent-hooks")
+const hook = resolve("bin/omapets-hook")
+const detector = resolve("bin/detect-agent")
 
 async function exists(path) {
   try {
@@ -15,6 +17,17 @@ async function exists(path) {
     return false
   }
 }
+
+test("uses the OmaPets state directory consistently", async () => {
+  const [hookSource, detectorSource] = await Promise.all([
+    readFile(hook, "utf8"),
+    readFile(detector, "utf8"),
+  ])
+
+  assert.match(hookSource, /omarchy\/omapets\/status\.json|state_dir="\$state_home\/omarchy\/omapets"/)
+  assert.match(detectorSource, /omarchy\/omapets\/status\.json/)
+  assert.doesNotMatch(`${hookSource}\n${detectorSource}`, /omarchy\/omarpets/)
+})
 
 test("installs and uninstalls every managed agent integration", async () => {
   const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))

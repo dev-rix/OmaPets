@@ -24,7 +24,7 @@ detail=$(printf '%s' "$payload" | jq -r '
 ' 2>/dev/null || true)
 
 state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
-state_dir="$state_home/omarchy/omarpets"
+state_dir="$state_home/omarchy/omapets"
 state_file="$state_dir/status.json"
 mkdir -p "$state_dir"
 

@@ -11,7 +11,7 @@ if [[ -z "$agent" ]]; then
 fi
 
 state_home="${XDG_STATE_HOME:-$home/.local/state}"
-status_file="$state_home/omarchy/omarpets/status.json"
+status_file="$state_home/omarchy/omapets/status.json"
 if [[ -f "$status_file" ]]; then
   hook_agent=$(jq -r '.agent // empty' "$status_file" 2>/dev/null || true)
   hook_state=$(jq -r '.state // empty' "$status_file" 2>/dev/null || true)
