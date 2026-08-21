@@ -39,19 +39,10 @@ Automatic detection follows the agent selected by `omarchy-default-agent`.
 Recent session activity and process presence provide basic state detection.
 
 For more accurate working, waiting, finished, and failed states, install the
-optional lifecycle integrations:
-
-```bash
-~/.config/omarchy/plugins/omapets/bin/install-agent-hooks
-```
-
-With no arguments, the script installs integrations for every supported agent.
-You can instead install one or more named agents:
-
-```bash
-~/.config/omarchy/plugins/omapets/bin/install-agent-hooks claude
-~/.config/omarchy/plugins/omapets/bin/install-agent-hooks codex gemini
-```
+optional lifecycle integrations. Open the OmaPets panel, select **Install
+hooks**, choose one or more coding agents, and press Enter. The floating
+terminal reports changed files and backups, then waits for a keypress before
+closing.
 
 Supported names are `codex`, `claude`, `opencode`, `gemini`, `copilot`,
 `crush`, `grok`, `pi`, and `omp`. The installer uses each agent's native hook,

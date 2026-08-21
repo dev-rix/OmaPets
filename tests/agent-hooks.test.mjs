@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { access, lstat, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises"
+import { access, chmod, lstat, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
@@ -176,4 +176,32 @@ test("uses unpredictable exclusive backups without following legacy backup symli
   const backups = (await readdir(codexHome)).filter(name => /^\.config\.toml\.backup\.[0-9a-f]{32}$/.test(name))
   assert.equal(backups.length, 1)
   assert.equal(await readFile(join(codexHome, backups[0]), "utf8"), 'model = "gpt-test"\n')
+})
+
+test("interactive installer applies the agents selected in the floating terminal", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const fakeBin = join(root, "bin")
+  const codexHome = join(root, "codex")
+  const claudeHome = join(root, "claude")
+  await mkdir(fakeBin, { recursive: true })
+  await writeFile(join(fakeBin, "gum"), "#!/usr/bin/env bash\nprintf 'codex\\nclaude\\n'\n")
+  await chmod(join(fakeBin, "gum"), 0o755)
+
+  const result = spawnSync(installer, ["--interactive"], {
+    env: {
+      ...process.env,
+      HOME: root,
+      CODEX_HOME: codexHome,
+      CLAUDE_CONFIG_DIR: claudeHome,
+      PATH: `${fakeBin}:${process.env.PATH}`,
+    },
+    encoding: "utf8",
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /Install agent hooks/)
+  assert.match(result.stdout, /Agent hooks installed/)
+  assert.match(result.stdout, /Press any key to close…/)
+  assert.match(await readFile(join(codexHome, "config.toml"), "utf8"), /BEGIN OMAPETS MANAGED HOOKS/)
+  assert.equal(JSON.parse(await readFile(join(claudeHome, "settings.json"), "utf8")).hooks !== undefined, true)
 })
