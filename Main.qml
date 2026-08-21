@@ -44,6 +44,7 @@ BarWidget {
   property int imageRevision: 0
   property bool petPickerOpen: false
   property bool petAvailable: false
+  property int manifestRetryCount: 0
   property int atlasRows: 9
   property var availablePets: []
   property string panelLogo: "OmaPets"
@@ -58,9 +59,12 @@ BarWidget {
   readonly property string previewHome: cacheHome + "/omarpets/previews"
   readonly property string configuredPetPath: String(setting("petPath", ""))
   readonly property string petsHome: home + "/.config/omapets/pets"
-  readonly property string resolvedPetPath: resolvePetPath(configuredPetPath)
-  readonly property url petManifestUrl: configuredPetPath === "" || resolvedPetPath === ""
-    ? "" : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
+  readonly property string bundledPetPath:
+    filePath(Qt.resolvedUrl("assets/pets/glitchcat"))
+  readonly property string resolvedPetPath: configuredPetPath === ""
+    ? bundledPetPath : resolvePetPath(configuredPetPath)
+  readonly property url petManifestUrl: resolvedPetPath === "" ? ""
+    : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
   property string petName: "No pet installed"
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
@@ -129,19 +133,26 @@ BarWidget {
   }
 
   function parseAvailablePets(output) {
-    var pets = []
+    var pets = [{
+      id: "glitchcat",
+      petPath: "",
+      name: "Glitchcat",
+      atlasRows: 9,
+      spritesheet: Qt.resolvedUrl("assets/pets/glitchcat/preview.png")
+    }]
     var lines = String(output || "").trim().split("\n")
     for (var index = 0; index < lines.length; index++) {
       if (lines[index] === "") continue
       var fields = lines[index].split("\t")
       var id = String(fields.shift() || "").trim()
-      if (id === "") continue
+      if (id === "" || id === "glitchcat") continue
       var name = String(fields.shift() || id).trim()
       fields.shift()
       var rows = Number(fields.shift() || 9) === 11 ? 11 : 9
       var previewSheet = "file://" + previewHome + "/" + id + ".png"
       pets.push({
         id: id,
+        petPath: id,
         name: name,
         atlasRows: rows,
         spritesheet: previewSheet
@@ -157,12 +168,11 @@ BarWidget {
       if (key !== "id") entry[key] = root.settings[key]
     entry.petPath = selectedId
 
-    petAvailable = false
-    spritesheetUrl = ""
-    root.settings = entry
+    var updated = false
     if (root.bar && root.bar.shell
         && typeof root.bar.shell.updateEntryInline === "function")
-      root.bar.shell.updateEntryInline(root.moduleName, entry)
+      updated = root.bar.shell.updateEntryInline(root.moduleName, entry)
+    if (!updated) root.settings = entry
     petPickerOpen = false
   }
 
@@ -233,7 +243,14 @@ BarWidget {
     return labels[agent] || agent
   }
 
-  function reloadPet() { petManifest.reload() }
+  function reloadPet() {
+    if (petManifestLoader.item) petManifestLoader.item.reload()
+  }
+
+  onPetManifestUrlChanged: {
+    manifestRetryCount = 0
+    if (petManifestUrl !== "") manifestRetryTimer.restart()
+  }
 
   FileView {
     path: Qt.resolvedUrl("assets/logo.txt")
@@ -241,38 +258,54 @@ BarWidget {
     onLoaded: root.panelLogo = String(text() || "OmaPets").replace(/\s+$/, "")
   }
 
-  FileView {
-    id: petManifest
-    path: root.petManifestUrl
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoadFailed: {
-      root.petAvailable = false
-      root.petName = "No pet installed"
-      root.atlasRows = 9
-      root.spritesheetUrl = ""
-    }
-    onLoaded: {
-      try {
-        var pet = JSON.parse(String(text() || "{}"))
-        var sheet = String(pet.spritesheetPath || "spritesheet.webp")
-        if (sheet.indexOf("..") >= 0 || sheet.indexOf("/") === 0)
-          throw new Error("spritesheetPath must stay inside the pet folder")
-        root.petName = String(pet.displayName || pet.id || "Pet")
-        root.atlasRows = Number(pet.spriteVersionNumber || 1) >= 2 ? 11 : 9
-        var manifestUrl = String(root.petManifestUrl)
-        var slash = manifestUrl.lastIndexOf("/")
-        root.loadSpritesheet(manifestUrl.slice(0, slash + 1) + sheet)
-        root.petAvailable = true
-        root.imageRevision++
-      } catch (error) {
+  Loader {
+    id: petManifestLoader
+    active: root.petManifestUrl !== ""
+
+    sourceComponent: FileView {
+      path: root.petManifestUrl
+      watchChanges: true
+      printErrors: false
+      onFileChanged: reload()
+      onLoadFailed: {
         root.petAvailable = false
+        root.petName = "No pet installed"
         root.atlasRows = 9
         root.spritesheetUrl = ""
-        console.warn("omarpets: invalid pet manifest", error)
+        if (root.petManifestUrl !== "" && root.manifestRetryCount < 3) {
+          root.manifestRetryCount++
+          manifestRetryTimer.restart()
+        }
+      }
+      onLoaded: {
+        try {
+          var pet = JSON.parse(String(text() || "{}"))
+          var sheet = String(pet.spritesheetPath || "spritesheet.webp")
+          if (sheet.indexOf("..") >= 0 || sheet.indexOf("/") === 0)
+            throw new Error("spritesheetPath must stay inside the pet folder")
+          root.petName = String(pet.displayName || pet.id || "Pet")
+          root.atlasRows = Number(pet.spriteVersionNumber || 1) >= 2 ? 11 : 9
+          var manifestUrl = String(root.petManifestUrl)
+          var slash = manifestUrl.lastIndexOf("/")
+          root.loadSpritesheet(manifestUrl.slice(0, slash + 1) + sheet)
+          root.petAvailable = true
+          root.manifestRetryCount = 0
+          root.imageRevision++
+        } catch (error) {
+          root.petAvailable = false
+          root.atlasRows = 9
+          root.spritesheetUrl = ""
+          console.warn("omarpets: invalid pet manifest", error)
+        }
       }
     }
+  }
+
+  Timer {
+    id: manifestRetryTimer
+    interval: 100
+    repeat: false
+    onTriggered: root.reloadPet()
   }
 
 
@@ -375,15 +408,6 @@ BarWidget {
       mipmap: false
       asynchronous: true
       visible: root.petAvailable
-    }
-
-    Text {
-      anchors.centerIn: parent
-      visible: !root.petAvailable
-      text: "󰄛"
-      color: root.bar.foreground
-      font.family: root.bar.fontFamily
-      font.pixelSize: Style.font.icon
     }
 
     MouseArea {
@@ -497,10 +521,10 @@ BarWidget {
           required property var modelData
           width: GridView.view.cellWidth - Style.spacing.sm
           height: GridView.view.cellHeight - Style.spacing.sm
-          selected: String(root.configuredPetPath) === String(petTile.modelData.id)
+          selected: String(root.configuredPetPath) === String(petTile.modelData.petPath)
           bordered: true
           focusable: true
-          onClicked: root.selectPet(petTile.modelData.id)
+          onClicked: root.selectPet(petTile.modelData.petPath)
 
           Item {
             id: petPreview
