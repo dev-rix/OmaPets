@@ -18,56 +18,150 @@ else
   hook_command="$(cd -- "$(dirname -- "$0")" && pwd)/omapets-hook"
 fi
 
+reject_unsafe_target() {
+  local target=$1
+  if [[ -L $target ]]; then
+    printf 'Refusing symlink target: %s\n' "$target" >&2
+    return 1
+  fi
+  if [[ -e $target && ! -f $target ]]; then
+    printf 'Refusing non-regular target: %s\n' "$target" >&2
+    return 1
+  fi
+}
+
+random_sibling() {
+  local target=$1 kind=$2 suffix
+  suffix=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+  printf '%s/.%s.%s.%s' "$(dirname -- "$target")" "$(basename -- "$target")" "$kind" "$suffix"
+}
+
+write_exclusive() {
+  local path=$1
+  perl -MFcntl=:DEFAULT -e '
+    use strict; use warnings;
+    my ($path) = @ARGV;
+    sysopen(my $out, $path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600)
+      or die "Refusing to create $path: $!\n";
+    my $buffer;
+    while (read(STDIN, $buffer, 65536)) { print {$out} $buffer or die "write $path: $!\n"; }
+    close($out) or die "close $path: $!\n";
+  ' "$path"
+}
+
+copy_nofollow() {
+  local source=$1 destination=$2
+  perl -MFcntl=:DEFAULT -e '
+    use strict; use warnings;
+    my ($source, $destination) = @ARGV;
+    sysopen(my $in, $source, O_RDONLY | O_NOFOLLOW)
+      or die "Refusing to read $source: $!\n";
+    sysopen(my $out, $destination, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600)
+      or die "Refusing to create $destination: $!\n";
+    my $buffer;
+    while (read($in, $buffer, 65536)) { print {$out} $buffer or die "write $destination: $!\n"; }
+    close($out) or die "close $destination: $!\n";
+    close($in) or die "close $source: $!\n";
+  ' "$source" "$destination"
+}
+
+snapshot_target() {
+  local target=$1 snapshot
+  reject_unsafe_target "$target" || return 1
+  snapshot=$(random_sibling "$target" snapshot)
+  if [[ -e $target ]]; then
+    copy_nofollow "$target" "$snapshot" || return 1
+  else
+    printf '' | write_exclusive "$snapshot" || return 1
+  fi
+  printf '%s' "$snapshot"
+}
+
+backup_target() {
+  local target=$1 backup
+  reject_unsafe_target "$target" || return 1
+  backup=$(random_sibling "$target" backup)
+  copy_nofollow "$target" "$backup" || return 1
+  printf '%s' "$backup"
+}
+
+atomic_replace() {
+  local target=$1 candidate=$2
+  reject_unsafe_target "$target" || return 1
+  [[ -f $candidate && ! -L $candidate ]] || { printf 'Unsafe candidate: %s\n' "$candidate" >&2; return 1; }
+  [[ $(dirname -- "$target") == "$(dirname -- "$candidate")" ]] \
+    || { printf 'Candidate must be beside target: %s\n' "$candidate" >&2; return 1; }
+  mv -fT -- "$candidate" "$target"
+}
+
+matches_target() {
+  local target=$1 candidate=$2 snapshot result=1
+  [[ -e $target ]] || return 1
+  snapshot=$(snapshot_target "$target") || return 2
+  cmp -s -- "$snapshot" "$candidate" && result=0
+  rm -f -- "$snapshot"
+  return "$result"
+}
+
 replace_managed() {
   local target=$1 candidate=$2 backup
   mkdir -p "$(dirname -- "$target")"
-  if [[ -f $target ]] && cmp -s "$target" "$candidate"; then
+  reject_unsafe_target "$target" || return 1
+  if [[ -f $target ]] && matches_target "$target" "$candidate"; then
     rm -f "$candidate"; printf 'OmaPets hooks already installed in %s\n' "$target"; return
   fi
   if [[ -f $target ]]; then
-    backup="$target.bak.$(date +%Y%m%d%H%M%S)"; cp -p "$target" "$backup"
+    backup=$(backup_target "$target") || return 1
     printf 'Backup: %s\n' "$backup"
   fi
-  mv -f "$candidate" "$target"
+  atomic_replace "$target" "$candidate"
   printf 'Installed OmaPets hooks in %s\n' "$target"
 }
 
 replace_after_uninstall() {
   local target=$1 candidate=$2 backup
-  if [[ ! -f $target ]] || cmp -s "$target" "$candidate"; then
+  reject_unsafe_target "$target" || return 1
+  if [[ ! -f $target ]] || matches_target "$target" "$candidate"; then
     rm -f "$candidate"; printf 'No OmaPets hooks found in %s\n' "$target"; return
   fi
-  backup="$target.bak.$(date +%Y%m%d%H%M%S)"; cp -p "$target" "$backup"
-  mv -f "$candidate" "$target"
+  backup=$(backup_target "$target") || return 1
+  atomic_replace "$target" "$candidate"
   printf 'Removed OmaPets hooks from %s\nBackup: %s\n' "$target" "$backup"
 }
 
 merge_grouped() {
   local target=$1 agent=$2 spec=$3 current candidate
-  mkdir -p "$(dirname -- "$target")"; current=$(mktemp); candidate=$(mktemp)
-  [[ -s $target ]] && cp "$target" "$current" || printf '{}\n' >"$current"
+  mkdir -p "$(dirname -- "$target")"
+  current=$(snapshot_target "$target") || return 1
+  candidate=$(random_sibling "$target" candidate)
+  [[ -s $current ]] || printf '{}\n' | write_exclusive "${current}.json"
+  if [[ ! -s $current ]]; then rm -f -- "$current"; current="${current}.json"; fi
   jq empty "$current" || { printf 'Invalid JSON: %s\n' "$target" >&2; return 1; }
   jq --arg command "$hook_command" --arg agent "$agent" --argjson spec "$spec" '
     reduce ($spec | to_entries[]) as $item (.;
       .hooks[$item.key] = ((.hooks[$item.key] // []) |
         if any(.[]; any(.hooks[]?; (.command // "") == ($command + " " + $item.value + " " + $agent)))
         then . else . + [{hooks:[{type:"command", command:($command + " " + $item.value + " " + $agent)}]}] end))
-  ' "$current" >"$candidate"
-  replace_managed "$target" "$candidate"; rm -f "$current"
+  ' "$current" | write_exclusive "$candidate"
+  replace_managed "$target" "$candidate"; rm -f -- "$current"
 }
 
 install_codex() {
-  local target="${CODEX_HOME:-$HOME/.codex}/config.toml" backup
-  mkdir -p "$(dirname -- "$target")"; touch "$target"
-  if grep -Fq "$hook_command session-start codex" "$target"; then
+  local target="${CODEX_HOME:-$HOME/.codex}/config.toml" current candidate
+  mkdir -p "$(dirname -- "$target")"
+  current=$(snapshot_target "$target") || return 1
+  if grep -Fq "$hook_command session-start codex" "$current"; then
+    rm -f -- "$current"
     printf 'OmaPets hooks already installed in %s\n' "$target"; return
   fi
-  backup="$target.bak.$(date +%Y%m%d%H%M%S)"; cp -p "$target" "$backup"
-  printf '\n# BEGIN OMAPETS MANAGED HOOKS\n' >>"$target"
-  while read -r hook event; do
-    printf '\n[[hooks.%s]]\n[[hooks.%s.hooks]]\ntype = "command"\ncommand = "%s %s codex"\n' \
-      "$hook" "$hook" "$hook_command" "$event" >>"$target"
-  done <<'EOF'
+  candidate=$(random_sibling "$target" candidate)
+  {
+    cat -- "$current"
+    printf '\n# BEGIN OMAPETS MANAGED HOOKS\n'
+    while read -r hook event; do
+      printf '\n[[hooks.%s]]\n[[hooks.%s.hooks]]\ntype = "command"\ncommand = "%s %s codex"\n' \
+        "$hook" "$hook" "$hook_command" "$event"
+    done <<'EOF'
 SessionStart session-start
 UserPromptSubmit prompt
 PreToolUse tool-start
@@ -78,8 +172,10 @@ Stop stop
 StopFailure error
 SessionEnd session-end
 EOF
-  printf '# END OMAPETS MANAGED HOOKS\n' >>"$target"
-  printf 'Installed OmaPets hooks in %s\nBackup: %s\n' "$target" "$backup"
+    printf '# END OMAPETS MANAGED HOOKS\n'
+  } | write_exclusive "$candidate"
+  rm -f -- "$current"
+  replace_managed "$target" "$candidate"
 }
 
 install_claude() {
@@ -94,11 +190,13 @@ install_gemini() {
 
 install_hook_file() {
   local target=$1 agent=$2 version=$3 events=$4 candidate
-  candidate=$(mktemp)
+  mkdir -p "$(dirname -- "$target")"
+  reject_unsafe_target "$target" || return 1
+  candidate=$(random_sibling "$target" candidate)
   jq -n --arg cmd "$hook_command" --arg agent "$agent" --argjson events "$events" --argjson version "$version" '
     {hooks:($events | with_entries(.value=[{type:"command", command:($cmd + " " + .value + " " + $agent)}]))}
     | if $version == null then . else {version:$version} + . end
-  ' >"$candidate"
+  ' | write_exclusive "$candidate"
   replace_managed "$target" "$candidate"
 }
 
@@ -114,19 +212,23 @@ install_grok() {
 
 install_crush() {
   local target="${CRUSH_CONFIG_DIR:-$HOME/.config/crush}/crush.json" current candidate
-  mkdir -p "$(dirname -- "$target")"; current=$(mktemp); candidate=$(mktemp)
-  [[ -s $target ]] && cp "$target" "$current" || printf '{}\n' >"$current"
+  mkdir -p "$(dirname -- "$target")"
+  current=$(snapshot_target "$target") || return 1
+  candidate=$(random_sibling "$target" candidate)
+  [[ -s $current ]] || { rm -f -- "$current"; current=$(random_sibling "$target" current); printf '{}\n' | write_exclusive "$current"; }
   jq empty "$current" || { printf 'Invalid JSON: %s\n' "$target" >&2; return 1; }
   jq --arg command "$hook_command tool-start crush" '
     .hooks.PreToolUse=((.hooks.PreToolUse // []) | if any(.[];.command==$command) then . else .+[{name:"omarpets",command:$command}] end)
-  ' "$current" >"$candidate"
-  replace_managed "$target" "$candidate"; rm -f "$current"
+  ' "$current" | write_exclusive "$candidate"
+  replace_managed "$target" "$candidate"; rm -f -- "$current"
 }
 
 install_opencode() {
   local target="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/omapets.js" candidate
-  candidate=$(mktemp)
-  sed "s|@HOOK@|$hook_command|g" >"$candidate" <<'EOF'
+  mkdir -p "$(dirname -- "$target")"
+  reject_unsafe_target "$target" || return 1
+  candidate=$(random_sibling "$target" candidate)
+  sed "s|@HOOK@|$hook_command|g" <<'EOF' | write_exclusive "$candidate"
 // Generated by OmaPets. managed-id: omapets-agent-hook-v1
 export const OmaPets = async ({ $ }) => {
   const emit = async event => { await $`@HOOK@ ${event} opencode`.quiet() }
@@ -150,8 +252,11 @@ EOF
 install_pi_extension() {
   local agent=$1 root target candidate
   [[ $agent == pi ]] && root="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" || root="${OMP_AGENT_DIR:-$HOME/.omp/agent}"
-  target="$root/extensions/omapets.ts"; candidate=$(mktemp)
-  sed -e "s|@HOOK@|$hook_command|g" -e "s|@AGENT@|$agent|g" >"$candidate" <<'EOF'
+  target="$root/extensions/omapets.ts"
+  mkdir -p "$(dirname -- "$target")"
+  reject_unsafe_target "$target" || return 1
+  candidate=$(random_sibling "$target" candidate)
+  sed -e "s|@HOOK@|$hook_command|g" -e "s|@AGENT@|$agent|g" <<'EOF' | write_exclusive "$candidate"
 // Generated by OmaPets. managed-id: omapets-agent-hook-v1
 import { spawn } from "node:child_process"
 export default function (pi: any) {
@@ -181,9 +286,11 @@ install_one() {
 }
 
 uninstall_grouped() {
-  local target=$1 agent=$2 spec=$3 candidate
+  local target=$1 agent=$2 spec=$3 current candidate
+  reject_unsafe_target "$target" || return 1
   [[ -s $target ]] || { printf 'No OmaPets hooks found in %s\n' "$target"; return; }
-  candidate=$(mktemp)
+  current=$(snapshot_target "$target") || return 1
+  candidate=$(random_sibling "$target" candidate)
   jq --arg command "$hook_command" --arg agent "$agent" --argjson spec "$spec" '
     reduce ($spec | to_entries[]) as $item (.;
       if (.hooks[$item.key] | type) == "array" then
@@ -195,18 +302,22 @@ uninstall_grouped() {
         | if (.hooks[$item.key] | length) == 0 then del(.hooks[$item.key]) else . end
       else . end)
     | if (.hooks | type) == "object" and (.hooks | length) == 0 then del(.hooks) else . end
-  ' "$target" >"$candidate"
+  ' "$current" | write_exclusive "$candidate"
+  rm -f -- "$current"
   replace_after_uninstall "$target" "$candidate"
 }
 
 uninstall_codex() {
-  local target="${CODEX_HOME:-$HOME/.codex}/config.toml" candidate
+  local target="${CODEX_HOME:-$HOME/.codex}/config.toml" current candidate
+  reject_unsafe_target "$target" || return 1
   [[ -f $target ]] || { printf 'No OmaPets hooks found in %s\n' "$target"; return; }
-  candidate=$(mktemp)
+  current=$(snapshot_target "$target") || return 1
+  candidate=$(random_sibling "$target" candidate)
   OMAPETS_HOOK_COMMAND="$hook_command" perl -0pe '
     s/\n?# BEGIN OMAPETS MANAGED HOOKS\n.*?# END OMAPETS MANAGED HOOKS\n?//sg;
     s{\n?\[\[hooks\.[^\]\n]+\]\]\n\[\[hooks\.[^\]\n]+\.hooks\]\]\ntype = "command"\ncommand = "\Q$ENV{OMAPETS_HOOK_COMMAND}\E [^"\n]+ codex"\n?}{}g;
-  ' "$target" >"$candidate"
+  ' "$current" | write_exclusive "$candidate"
+  rm -f -- "$current"
   replace_after_uninstall "$target" "$candidate"
 }
 
@@ -221,17 +332,22 @@ uninstall_gemini() {
 }
 
 uninstall_hook_file() {
-  local target=$1 agent=$2
+  local target=$1 agent=$2 current backup
+  reject_unsafe_target "$target" || return 1
   [[ -f $target ]] || { printf 'No OmaPets hooks found in %s\n' "$target"; return; }
+  current=$(snapshot_target "$target") || return 1
   if jq -e --arg command "$hook_command" --arg agent "$agent" '
     [.. | objects | .command? // empty] as $commands
     | ($commands | length) > 0
       and all($commands[]; startswith($command + " ") and endswith(" " + $agent))
-  ' "$target" >/dev/null; then
-    local backup="$target.bak.$(date +%Y%m%d%H%M%S)"
-    cp -p "$target" "$backup"; rm -f "$target"
+  ' "$current" >/dev/null; then
+    backup=$(backup_target "$target") || return 1
+    reject_unsafe_target "$target" || return 1
+    rm -f -- "$target"
+    rm -f -- "$current"
     printf 'Removed OmaPets integration %s\nBackup: %s\n' "$target" "$backup"
   else
+    rm -f -- "$current"
     printf 'Refusing to remove modified integration: %s\n' "$target" >&2
     return 1
   fi
@@ -241,28 +357,36 @@ uninstall_copilot() { uninstall_hook_file "${COPILOT_HOME:-$HOME/.copilot}/hooks
 uninstall_grok() { uninstall_hook_file "${GROK_HOME:-$HOME/.grok}/hooks/omapets.json" grok; }
 
 uninstall_crush() {
-  local target="${CRUSH_CONFIG_DIR:-$HOME/.config/crush}/crush.json" candidate command
+  local target="${CRUSH_CONFIG_DIR:-$HOME/.config/crush}/crush.json" current candidate command
+  reject_unsafe_target "$target" || return 1
   [[ -s $target ]] || { printf 'No OmaPets hooks found in %s\n' "$target"; return; }
-  candidate=$(mktemp); command="$hook_command tool-start crush"
+  current=$(snapshot_target "$target") || return 1
+  candidate=$(random_sibling "$target" candidate); command="$hook_command tool-start crush"
   jq --arg command "$command" '
     if (.hooks.PreToolUse | type) == "array" then
       .hooks.PreToolUse |= [ .[] | select(.command != $command) ]
       | if (.hooks.PreToolUse | length) == 0 then del(.hooks.PreToolUse) else . end
       | if (.hooks | length) == 0 then del(.hooks) else . end
     else . end
-  ' "$target" >"$candidate"
+  ' "$current" | write_exclusive "$candidate"
+  rm -f -- "$current"
   replace_after_uninstall "$target" "$candidate"
 }
 
 remove_generated_file() {
-  local target=$1
+  local target=$1 current backup
+  reject_unsafe_target "$target" || return 1
   [[ -f $target ]] || { printf 'No OmaPets integration found at %s\n' "$target"; return; }
-  if grep -Fq 'managed-id: omapets-agent-hook-v1' "$target" \
-      || { grep -Fq "$hook_command" "$target" && grep -Eq 'OmaPets|session_start' "$target"; }; then
-    local backup="$target.bak.$(date +%Y%m%d%H%M%S)"
-    cp -p "$target" "$backup"; rm -f "$target"
+  current=$(snapshot_target "$target") || return 1
+  if grep -Fq 'managed-id: omapets-agent-hook-v1' "$current" \
+      || { grep -Fq "$hook_command" "$current" && grep -Eq 'OmaPets|session_start' "$current"; }; then
+    backup=$(backup_target "$target") || return 1
+    reject_unsafe_target "$target" || return 1
+    rm -f -- "$target"
+    rm -f -- "$current"
     printf 'Removed OmaPets integration %s\nBackup: %s\n' "$target" "$backup"
   else
+    rm -f -- "$current"
     printf 'Refusing to remove modified integration: %s\n' "$target" >&2
     return 1
   fi
