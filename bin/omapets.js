@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import process from "node:process"
+import { createInterface } from "node:readline/promises"
 import { installPet } from "../src/pet-installer.js"
 
 const usage = `Usage:
+  omapets
   omapets <pet-url> [--dir <pets-directory>]
   omapets install <pet-url> [--dir <pets-directory>]
 
@@ -30,8 +32,21 @@ function parseArgs(args) {
     }
   }
 
-  if (!petUrl) throw new Error("A Petdex, Codex Pets, or OpenPets URL is required")
   return { petUrl, petsDir }
+}
+
+async function promptForPetUrl() {
+  if (!process.stdin.isTTY || !process.stdout.isTTY)
+    throw new Error("A Petdex, Codex Pets, or OpenPets URL is required")
+
+  const prompt = createInterface({ input: process.stdin, output: process.stdout })
+  try {
+    const value = (await prompt.question("Pet URL: ")).trim()
+    if (!value) throw new Error("A pet URL is required")
+    return value
+  } finally {
+    prompt.close()
+  }
 }
 
 try {
@@ -41,7 +56,8 @@ try {
     process.exit(0)
   }
 
-  const result = await installPet(args.petUrl, { petsDir: args.petsDir })
+  const petUrl = args.petUrl || await promptForPetUrl()
+  const result = await installPet(petUrl, { petsDir: args.petsDir })
   console.log(`Installed ${result.displayName} to ${result.destination}`)
 } catch (error) {
   console.error(`omapets: ${error.message}`)

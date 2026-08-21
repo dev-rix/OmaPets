@@ -50,7 +50,7 @@ assert.match(
 
 assert.match(
   qml,
-  /GridView\s*\{[\s\S]*?anchors\.top:\s*petPickerTitle\.bottom[\s\S]*?anchors\.bottom:\s*parent\.bottom[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
+  /GridView\s*\{[\s\S]*?anchors\.top:\s*petPickerHeader\.bottom[\s\S]*?anchors\.bottom:\s*parent\.bottom[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
   "the pet grid must fill a vertically scrollable viewport",
 )
 
@@ -62,14 +62,14 @@ assert.match(
 
 assert.match(
   qml,
-  /No pets installed yet[\s\S]*?How to download pets/,
-  "an empty pets directory must show download instructions",
+  /Button\s*\{\s*id:\s*installPetButton[\s\S]*?text:\s*"Install pet"[\s\S]*?onClicked:\s*root\.openPetInstaller\(\)/,
+  "the pet panel must expose its installer even when pets are already available",
 )
 
 assert.match(
   qml,
-  /command:\s*\["xdg-open",\s*"https:\/\/github\.com\/yesmeck\/OmaPets#install-a-pet"\]/,
-  "the download instructions must link to the README",
+  /Qt\.resolvedUrl\("bin\/omapets\.js"\)[\s\S]*?omarchy shell -q omapets refreshPets[\s\S]*?omarchy-launch-floating-terminal-with-presentation/,
+  "the installer button must run the bundled installer in an Omarchy terminal and refresh the picker",
 )
 
 assert.match(
