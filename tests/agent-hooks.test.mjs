@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { access, lstat, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
@@ -120,4 +120,60 @@ command = "${hook} session-start codex"
 
   assert.equal(result.status, 0, result.stderr)
   assert.equal(await readFile(config, "utf8"), 'model = "gpt-test"\n')
+})
+
+test("rejects symlinked install and uninstall targets", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const codexHome = join(root, "codex")
+  const claudeHome = join(root, "claude")
+  const victim = join(root, "victim")
+  const codexConfig = join(codexHome, "config.toml")
+  const claudeConfig = join(claudeHome, "settings.json")
+  await Promise.all([
+    mkdir(codexHome, { recursive: true }),
+    mkdir(claudeHome, { recursive: true }),
+  ])
+  await writeFile(victim, "do not modify\n")
+  await Promise.all([
+    symlink(victim, codexConfig),
+    symlink(victim, claudeConfig),
+  ])
+  const env = {
+    ...process.env,
+    HOME: root,
+    CODEX_HOME: codexHome,
+    CLAUDE_CONFIG_DIR: claudeHome,
+  }
+
+  for (const args of [["codex"], ["claude"], ["--uninstall", "codex"], ["--uninstall", "claude"]]) {
+    const result = spawnSync(installer, args, { env, encoding: "utf8" })
+    assert.notEqual(result.status, 0, args.join(" "))
+    assert.match(result.stderr, /Refusing symlink target/)
+    assert.equal(await readFile(victim, "utf8"), "do not modify\n")
+  }
+})
+
+test("uses unpredictable exclusive backups without following legacy backup symlinks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const codexHome = join(root, "codex")
+  const config = join(codexHome, "config.toml")
+  const victim = join(root, "victim")
+  await mkdir(codexHome, { recursive: true })
+  await writeFile(config, 'model = "gpt-test"\n')
+  await writeFile(victim, "do not modify\n")
+  const timestamp = spawnSync("date", ["+%Y%m%d%H%M%S"], { encoding: "utf8" }).stdout.trim()
+  const legacyBackup = `${config}.bak.${timestamp}`
+  await symlink(victim, legacyBackup)
+
+  const result = spawnSync(installer, ["codex"], {
+    env: { ...process.env, HOME: root, CODEX_HOME: codexHome },
+    encoding: "utf8",
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(await readFile(victim, "utf8"), "do not modify\n")
+  assert.equal((await lstat(legacyBackup)).isSymbolicLink(), true)
+  const backups = (await readdir(codexHome)).filter(name => /^\.config\.toml\.backup\.[0-9a-f]{32}$/.test(name))
+  assert.equal(backups.length, 1)
+  assert.equal(await readFile(join(codexHome, backups[0]), "utf8"), 'model = "gpt-test"\n')
 })
