@@ -196,8 +196,11 @@ test("interactive installer applies the agents selected in the floating terminal
       PATH: `${fakeBin}:${process.env.PATH}`,
     },
     encoding: "utf8",
+    input: "\n",
+    timeout: 5_000,
   })
 
+  assert.equal(result.error, undefined, result.error?.message)
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /Install agent hooks/)
   assert.match(result.stdout, /Agent hooks installed/)
