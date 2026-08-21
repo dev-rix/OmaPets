@@ -1,0 +1,123 @@
+import assert from "node:assert/strict"
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join, resolve } from "node:path"
+import { spawnSync } from "node:child_process"
+import test from "node:test"
+
+const installer = resolve("bin/install-agent-hooks")
+
+async function exists(path) {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+test("installs and uninstalls every managed agent integration", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const paths = {
+    codex: join(root, "codex"),
+    claude: join(root, "claude"),
+    gemini: join(root, "gemini"),
+    copilot: join(root, "copilot"),
+    grok: join(root, "grok"),
+    crush: join(root, "crush"),
+    config: join(root, "config"),
+    pi: join(root, "pi"),
+    omp: join(root, "omp"),
+  }
+  const env = {
+    ...process.env,
+    HOME: root,
+    CODEX_HOME: paths.codex,
+    CLAUDE_CONFIG_DIR: paths.claude,
+    GEMINI_CONFIG_DIR: paths.gemini,
+    COPILOT_HOME: paths.copilot,
+    GROK_HOME: paths.grok,
+    CRUSH_CONFIG_DIR: paths.crush,
+    XDG_CONFIG_HOME: paths.config,
+    PI_CODING_AGENT_DIR: paths.pi,
+    OMP_AGENT_DIR: paths.omp,
+  }
+
+  await Promise.all([
+    mkdir(paths.codex, { recursive: true }),
+    mkdir(paths.claude, { recursive: true }),
+    mkdir(paths.crush, { recursive: true }),
+  ])
+  await Promise.all([
+    writeFile(join(paths.codex, "config.toml"), 'model = "gpt-test"\n'),
+    writeFile(join(paths.claude, "settings.json"), `${JSON.stringify({
+      theme: "dark",
+      hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "keep-me" }] }] },
+    })}\n`),
+    writeFile(join(paths.crush, "crush.json"), `${JSON.stringify({
+      theme: "dark",
+      hooks: { PreToolUse: [{ name: "other", command: "keep-me" }] },
+    })}\n`),
+  ])
+
+  const installed = spawnSync(installer, ["all"], { env, encoding: "utf8" })
+  assert.equal(installed.status, 0, installed.stderr)
+  assert.match(await readFile(join(paths.codex, "config.toml"), "utf8"), /BEGIN OMAPETS MANAGED HOOKS/)
+  assert.equal(await exists(join(paths.config, "opencode/plugins/omapets.js")), true)
+  assert.equal(await exists(join(paths.pi, "extensions/omapets.ts")), true)
+
+  const uninstalled = spawnSync(installer, ["--uninstall", "all"], { env, encoding: "utf8" })
+  assert.equal(uninstalled.status, 0, uninstalled.stderr)
+
+  assert.equal(await readFile(join(paths.codex, "config.toml"), "utf8"), 'model = "gpt-test"\n')
+  const claude = JSON.parse(await readFile(join(paths.claude, "settings.json"), "utf8"))
+  assert.equal(claude.theme, "dark")
+  assert.equal(claude.hooks.PreToolUse[0].hooks[0].command, "keep-me")
+  const crush = JSON.parse(await readFile(join(paths.crush, "crush.json"), "utf8"))
+  assert.equal(crush.theme, "dark")
+  assert.equal(crush.hooks.PreToolUse[0].command, "keep-me")
+  assert.equal(await exists(join(paths.copilot, "hooks/omapets.json")), false)
+  assert.equal(await exists(join(paths.grok, "hooks/omapets.json")), false)
+  assert.equal(await exists(join(paths.config, "opencode/plugins/omapets.js")), false)
+  assert.equal(await exists(join(paths.pi, "extensions/omapets.ts")), false)
+  assert.equal(await exists(join(paths.omp, "extensions/omapets.ts")), false)
+})
+
+test("refuses to remove a generated integration without an ownership signature", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const plugin = join(root, "opencode/plugins/omapets.js")
+  await mkdir(join(root, "opencode/plugins"), { recursive: true })
+  await writeFile(plugin, "// user-owned file\n")
+
+  const result = spawnSync(installer, ["--uninstall", "opencode"], {
+    env: { ...process.env, HOME: root, XDG_CONFIG_HOME: root },
+    encoding: "utf8",
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /Refusing to remove modified integration/)
+  assert.equal(await readFile(plugin, "utf8"), "// user-owned file\n")
+})
+
+test("uninstalls legacy unmarked Codex hook blocks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const codexHome = join(root, "codex")
+  const config = join(codexHome, "config.toml")
+  const hook = resolve("bin/omapets-hook")
+  await mkdir(codexHome, { recursive: true })
+  await writeFile(config, `model = "gpt-test"
+
+[[hooks.SessionStart]]
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "${hook} session-start codex"
+`)
+
+  const result = spawnSync(installer, ["--uninstall", "codex"], {
+    env: { ...process.env, HOME: root, CODEX_HOME: codexHome },
+    encoding: "utf8",
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(await readFile(config, "utf8"), 'model = "gpt-test"\n')
+})

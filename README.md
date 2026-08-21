@@ -59,6 +59,17 @@ Supported names are `codex`, `claude`, `opencode`, `gemini`, `copilot`,
 plugin, or extension mechanism. Existing JSON and TOML settings are preserved,
 changed files are backed up, and running it again does not add duplicate hooks.
 
+Remove one or more integrations without disturbing other agent settings:
+
+```bash
+~/.config/omarchy/plugins/omapets/bin/install-agent-hooks --uninstall codex claude
+~/.config/omarchy/plugins/omapets/bin/install-agent-hooks --uninstall all
+```
+
+Uninstall also creates backups. Generated integration files are removed only
+when they contain an OmaPets ownership marker or match the legacy generated
+format; files without either signature are left in place for manual review.
+
 Restart any open agent sessions after installation. OmaPets only uses hook data
 from the agent currently selected by `omarchy-default-agent`; other installed
 integrations can remain enabled for when you switch agents. Crush currently
