@@ -66,8 +66,20 @@ assert.match(
 
 assert.match(
   qml,
-  /contentHeight:\s*Style\.space\(344\)/,
-  "the panel must use a fixed 344-pixel height",
+  /contentHeight:\s*Style\.space\(400\)/,
+  "the panel must use a fixed 400-pixel height",
+)
+
+assert.match(
+  qml,
+  /FileView\s*\{[\s\S]*?path:\s*Qt\.resolvedUrl\("assets\/logo\.txt"\)[\s\S]*?root\.panelLogo\s*=/,
+  "the pet panel must load the bundled OmaPets logo",
+)
+
+assert.match(
+  qml,
+  /Text\s*\{\s*id:\s*omapetsLogo[\s\S]*?text:\s*root\.panelLogo[\s\S]*?font\.family:\s*"monospace"[\s\S]*?horizontalAlignment:\s*Text\.AlignHCenter[\s\S]*?textFormat:\s*Text\.PlainText/,
+  "the pet panel must render the logo as centered plain monospaced text",
 )
 
 assert.match(
