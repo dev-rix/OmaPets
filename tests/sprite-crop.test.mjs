@@ -9,4 +9,10 @@ assert.match(
   "the spritesheet must be clipped to exactly one scaled frame",
 )
 
+assert.match(
+  qml,
+  /root\.atlasRows\s*=\s*Number\(pet\.spriteVersionNumber\s*\|\|\s*1\)\s*>=\s*2\s*\?\s*11\s*:\s*9[\s\S]*?height:\s*frameViewport\.frameHeight\s*\*\s*root\.atlasRows/,
+  "v2 spritesheets must retain all eleven rows instead of being compressed to nine",
+)
+
 console.log("sprite crop viewport is exactly one frame")

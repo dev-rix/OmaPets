@@ -22,5 +22,8 @@ find "$pets_dir" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\n' 2
       name=$(jq -r '(.displayName // .id // "") | tostring | gsub("[\u0000-\u001f\u007f]"; " ")' \
         "$pet_dir/pet.json" 2>/dev/null || true)
       [[ -n "$name" ]] || name="$id"
-      printf '%s\t%s\t%s\n' "$id" "$name" "$sheet"
+      rows=$(jq -r 'if (((.spriteVersionNumber | tonumber?) // 1) >= 2) then 11 else 9 end' \
+        "$pet_dir/pet.json" 2>/dev/null || printf 9)
+      [[ $rows == 11 ]] || rows=9
+      printf '%s\t%s\t%s\t%s\n' "$id" "$name" "$sheet" "$rows"
     done

@@ -20,6 +20,7 @@ test("keeps crafted markup inert and strips line-protocol control characters", a
   await writeFile(join(petDir, "pet.json"), JSON.stringify({
     id: "crafted",
     displayName: '<img src="https://attacker.invalid/pixel">\nTabbed\tName',
+    spriteVersionNumber: 2,
     spritesheetPath: "spritesheet.webp",
   }))
   await writeFile(join(petDir, "spritesheet.webp"), "RIFF")
@@ -34,6 +35,6 @@ test("keeps crafted markup inert and strips line-protocol control characters", a
   assert.equal(result.status, 0, result.stderr)
   assert.equal(
     result.stdout,
-    'crafted\t<img src="https://attacker.invalid/pixel"> Tabbed Name\tspritesheet.webp\n',
+    'crafted\t<img src="https://attacker.invalid/pixel"> Tabbed Name\tspritesheet.webp\t11\n',
   )
 })

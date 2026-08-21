@@ -54,6 +54,12 @@ assert.match(
 
 assert.match(
   qml,
+  /atlasRows:\s*rows[\s\S]*?height:\s*petPreview\.height\s*\*\s*petTile\.modelData\.atlasRows/,
+  "pet picker previews must preserve v1 and v2 atlas row heights",
+)
+
+assert.match(
+  qml,
   /GridView\s*\{[\s\S]*?anchors\.top:\s*petPickerHeader\.bottom[\s\S]*?anchors\.bottom:\s*parent\.bottom[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
   "the pet grid must fill a vertically scrollable viewport",
 )
