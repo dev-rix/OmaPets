@@ -60,6 +60,58 @@ test("downloads a pet package into the OmaPets layout", async () => {
   )
 })
 
+test("follows a bounded HTTPS redirect on an approved host", async () => {
+  const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
+  const manifestUrl = "https://test.invalid/manifest"
+  const redirectedManifestUrl = "https://test.invalid/manifest-v2"
+  const calls = []
+  const fetchImpl = async (url, options) => {
+    calls.push([url, options])
+    if (url === manifestUrl)
+      return new Response(null, { status: 307, headers: { location: redirectedManifestUrl } })
+    if (url === redirectedManifestUrl)
+      return Response.json([{ slug: "kabi", petJsonUrl: "https://test.invalid/pet", spritesheetUrl: "https://test.invalid/sprite" }])
+    if (url === "https://test.invalid/pet")
+      return Response.json({ id: "kabi", spritesheetPath: "spritesheet.webp" })
+    return new Response(new Uint8Array([1]))
+  }
+
+  await installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl })
+
+  assert.equal(calls[0][1].redirect, "manual")
+  assert.equal(calls[1][0], redirectedManifestUrl)
+})
+
+test("rejects redirects outside the approved HTTPS provider boundary", async () => {
+  for (const location of [
+    "http://test.invalid/manifest",
+    "https://attacker.invalid/manifest",
+    "https://127.0.0.1/manifest",
+    "https://[::1]/manifest",
+    "https://169.254.169.254/latest/meta-data",
+  ]) {
+    const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
+    const manifestUrl = "https://test.invalid/manifest"
+    const fetchImpl = async () => new Response(null, { status: 302, headers: { location } })
+    await assert.rejects(
+      installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl }),
+      /HTTPS|unapproved host|private network/,
+      location,
+    )
+  }
+})
+
+test("rejects redirect loops", async () => {
+  const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
+  const manifestUrl = "https://test.invalid/manifest"
+  const fetchImpl = async () => new Response(null, { status: 302, headers: { location: manifestUrl } })
+
+  await assert.rejects(
+    installPet("https://petdex.dev/pets/kabi", { petsDir, manifestUrl, fetchImpl }),
+    /exceeded 5 redirects/,
+  )
+})
+
 test("normalizes the manifest ID for the installation directory", async () => {
   const petsDir = await mkdtemp(join(tmpdir(), "omarpets-test-"))
   const manifestUrl = "https://test.invalid/manifest"
