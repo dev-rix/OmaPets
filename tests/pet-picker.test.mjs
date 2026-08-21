@@ -16,6 +16,10 @@ for (const script of ["scan-pets", "detect-agent"]) {
   assert.match(qml, new RegExp(`Qt\\.resolvedUrl\\(\\"bin/${script}\\"\\)`))
 }
 
+const installerUrl = new URL("../bin/omapets", import.meta.url)
+assert.equal(readFileSync(installerUrl, "utf8").startsWith("#!/usr/bin/env bash\n"), true)
+assert.notEqual(statSync(installerUrl).mode & 0o111, 0, "the Bash pet installer must be executable")
+
 assert.doesNotMatch(qml, /command:\s*\["sh",\s*"-c"/)
 
 assert.doesNotMatch(
@@ -68,20 +72,14 @@ assert.match(
 
 assert.match(
   qml,
-  /Qt\.resolvedUrl\("bin\/omapets\.js"\)[\s\S]*?Qt\.resolvedUrl\("assets\/logo\.txt"\)[\s\S]*?omarchy shell -q omapets refreshPets[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
-  "the installer button must run the bundled installer in an OmaPets terminal and refresh the picker",
+  /Qt\.resolvedUrl\("bin\/omapets"\)[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
+  "the installer button must run the bundled Bash installer in an OmaPets terminal",
 )
 
 assert.doesNotMatch(
   qml,
   /omarchy-launch-floating-terminal-with-presentation/,
   "the installer terminal must not render the Omarchy presentation banner",
-)
-
-assert.match(
-  qml,
-  /Press any key to close…[\s\S]*?read -n 1 -s/,
-  "the installer terminal must stay open until the user dismisses it",
 )
 
 assert.match(

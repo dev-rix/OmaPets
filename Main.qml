@@ -101,15 +101,10 @@ BarWidget {
 
   function openPetInstaller() {
     if (!root.bar) return
-    var installer = root.filePath(Qt.resolvedUrl("bin/omapets.js"))
-    var logo = root.filePath(Qt.resolvedUrl("assets/logo.txt"))
-    var command = "clear; printf '\\033[32m'; cat " + Util.shellQuote(logo)
-      + "; printf '\\033[0m\\n'; " + Util.shellQuote(installer)
-      + "; status=$?; omarchy shell -q omapets refreshPets"
-      + "; printf '\\nPress any key to close…'; read -n 1 -s; printf '\\n'; exit $status"
+    var installer = root.filePath(Qt.resolvedUrl("bin/omapets"))
     var terminal = "setsid uwsm-app -- xdg-terminal-exec"
       + " --app-id=org.omarchy.terminal --title=OmaPets -e bash -c "
-      + Util.shellQuote(command)
+      + Util.shellQuote(installer)
     root.close()
     root.bar.run(terminal)
   }
