@@ -15,4 +15,16 @@ assert.match(
   "v2 spritesheets must retain all eleven rows instead of being compressed to nine",
 )
 
+assert.match(
+  qml,
+  /runningAnimations:\s*\[[\s\S]*?"row":\s*1,\s*"frames":\s*8[\s\S]*?"row":\s*2,\s*"frames":\s*8[\s\S]*?"row":\s*7,\s*"frames":\s*6/,
+  "working must randomly use the right, left, and active animation loops",
+)
+
+assert.match(
+  qml,
+  /Math\.floor\(Math\.random\(\)\s*\*\s*runningAnimations\.length\)[\s\S]*?activityState\s*===\s*"working"[\s\S]*?selectAnimation\("working"\)/,
+  "working must choose another random animation after each complete loop",
+)
+
 console.log("sprite crop viewport is exactly one frame")

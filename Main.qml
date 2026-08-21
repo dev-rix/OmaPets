@@ -34,6 +34,11 @@ BarWidget {
     "success": 6,
     "error": 8
   })
+  readonly property var runningAnimations: [
+    { "row": 1, "frames": 8 },
+    { "row": 2, "frames": 8 },
+    { "row": 7, "frames": 6 }
+  ]
 
   property string activityState: "idle"
   property string activityDetail: ""
@@ -41,6 +46,8 @@ BarWidget {
   property string detectedAgent: ""
   property double overrideUntil: 0
   property int currentFrame: 0
+  property int animationRow: stateRows["idle"]
+  property int animationFrameCount: stateFrames["idle"]
   property int imageRevision: 0
   property bool petPickerOpen: false
   property bool petAvailable: false
@@ -202,8 +209,20 @@ BarWidget {
     return stateRows[state] !== undefined ? state : "idle"
   }
 
+  function selectAnimation(state) {
+    if (state === "working") {
+      var animation = runningAnimations[Math.floor(Math.random() * runningAnimations.length)]
+      animationRow = animation.row
+      animationFrameCount = animation.frames
+      return
+    }
+    animationRow = stateRows[state]
+    animationFrameCount = stateFrames[state]
+  }
+
   function setActivity(state, detail, holdMs) {
     activityState = normalizedState(state)
+    selectAnimation(activityState)
     activityDetail = String(detail || "")
     overrideUntil = holdMs > 0 ? Date.now() + holdMs : 0
     currentFrame = 0
@@ -382,7 +401,14 @@ BarWidget {
     interval: root.frameInterval
     running: true
     repeat: true
-    onTriggered: root.currentFrame = (root.currentFrame + 1) % root.stateFrames[root.activityState]
+    onTriggered: {
+      if (root.currentFrame + 1 < root.animationFrameCount) {
+        root.currentFrame++
+        return
+      }
+      root.currentFrame = 0
+      if (root.activityState === "working") root.selectAnimation("working")
+    }
   }
 
   implicitWidth: Math.round(38 * petScale)
@@ -402,7 +428,7 @@ BarWidget {
       width: frameViewport.frameWidth * 8
       height: frameViewport.frameHeight * root.atlasRows
       x: -root.currentFrame * frameViewport.frameWidth
-      y: -root.stateRows[root.activityState] * frameViewport.frameHeight
+      y: -root.animationRow * frameViewport.frameHeight
       source: root.spritesheetUrl
       cache: false
       smooth: false
