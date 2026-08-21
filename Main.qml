@@ -103,9 +103,13 @@ BarWidget {
     if (!root.bar) return
     var installer = root.filePath(Qt.resolvedUrl("bin/omapets.js"))
     var command = Util.shellQuote(installer)
-      + "; status=$?; omarchy shell -q omapets refreshPets; exit $status"
+      + "; status=$?; omarchy shell -q omapets refreshPets"
+      + "; printf '\\nPress any key to close…'; read -n 1 -s; printf '\\n'; exit $status"
+    var terminal = "setsid uwsm-app -- xdg-terminal-exec"
+      + " --app-id=org.omarchy.terminal --title=OmaPets -e bash -c "
+      + Util.shellQuote(command)
     root.close()
-    root.bar.run("omarchy-launch-floating-terminal-with-presentation " + Util.shellQuote(command))
+    root.bar.run(terminal)
   }
 
   function parseAvailablePets(output) {

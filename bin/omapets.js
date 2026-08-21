@@ -14,6 +14,19 @@ Example:
   omapets https://codex-pets.net/#/pets/dario
   omapets https://openpets.dev/pets/player-05-b28eec8e`
 
+const interactiveBanner = `╭──────────────────────────╮
+│      🐾  OmaPets  🐾      │
+╰──────────────────────────╯`
+
+const interactiveHelp = `Install a pet
+
+Paste a pet page URL from one of these providers:
+  Petdex:      https://petdex.dev/pets/<pet-id>
+  Codex Pets:  https://codex-pets.net/#/pets/<pet-id>
+  OpenPets:    https://openpets.dev/pets/<pet-id>
+
+The pet will be installed in ~/.config/omapets/pets.`
+
 function parseArgs(args) {
   const values = [...args]
   if (values[0] === "install") values.shift()
@@ -39,6 +52,10 @@ async function promptForPetUrl() {
   if (!process.stdin.isTTY || !process.stdout.isTTY)
     throw new Error("A Petdex, Codex Pets, or OpenPets URL is required")
 
+  console.log(interactiveBanner)
+  console.log()
+  console.log(interactiveHelp)
+  console.log()
   const prompt = createInterface({ input: process.stdin, output: process.stdout })
   try {
     const value = (await prompt.question("Pet URL: ")).trim()
@@ -58,7 +75,8 @@ try {
 
   const petUrl = args.petUrl || await promptForPetUrl()
   const result = await installPet(petUrl, { petsDir: args.petsDir })
-  console.log(`Installed ${result.displayName} to ${result.destination}`)
+  console.log(`Installed ${result.displayName}`)
+  console.log(`Pet path: ${result.destination}`)
 } catch (error) {
   console.error(`omapets: ${error.message}`)
   console.error(usage)

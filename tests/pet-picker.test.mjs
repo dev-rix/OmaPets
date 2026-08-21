@@ -68,8 +68,20 @@ assert.match(
 
 assert.match(
   qml,
-  /Qt\.resolvedUrl\("bin\/omapets\.js"\)[\s\S]*?omarchy shell -q omapets refreshPets[\s\S]*?omarchy-launch-floating-terminal-with-presentation/,
-  "the installer button must run the bundled installer in an Omarchy terminal and refresh the picker",
+  /Qt\.resolvedUrl\("bin\/omapets\.js"\)[\s\S]*?omarchy shell -q omapets refreshPets[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
+  "the installer button must run the bundled installer in an OmaPets terminal and refresh the picker",
+)
+
+assert.doesNotMatch(
+  qml,
+  /omarchy-launch-floating-terminal-with-presentation/,
+  "the installer terminal must not render the Omarchy presentation banner",
+)
+
+assert.match(
+  qml,
+  /Press any key to close…[\s\S]*?read -n 1 -s/,
+  "the installer terminal must stay open until the user dismisses it",
 )
 
 assert.match(
