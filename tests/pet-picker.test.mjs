@@ -68,7 +68,7 @@ assert.match(
 
 assert.match(
   qml,
-  /Qt\.resolvedUrl\("bin\/omapets\.js"\)[\s\S]*?omarchy shell -q omapets refreshPets[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
+  /Qt\.resolvedUrl\("bin\/omapets\.js"\)[\s\S]*?Qt\.resolvedUrl\("assets\/logo\.txt"\)[\s\S]*?omarchy shell -q omapets refreshPets[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
   "the installer button must run the bundled installer in an OmaPets terminal and refresh the picker",
 )
 
