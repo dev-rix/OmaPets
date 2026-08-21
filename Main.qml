@@ -198,6 +198,13 @@ BarWidget {
     currentFrame = 0
   }
 
+  function cycleActivityState() {
+    var states = ["idle", "working", "waiting", "success", "error"]
+    var current = states.indexOf(activityState)
+    var next = states[(current + 1) % states.length]
+    setActivity(next, "", 5000)
+  }
+
   function applyDetectedState(state) {
     detectedState = normalizedState(state)
     if (overrideUntil > Date.now()) return
@@ -381,10 +388,12 @@ BarWidget {
 
     MouseArea {
       anchors.fill: parent
-      acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+      acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
       hoverEnabled: true
       onClicked: function(mouse) {
-        if (mouse.button === Qt.MiddleButton) {
+        if (mouse.button === Qt.RightButton) {
+          root.cycleActivityState()
+        } else if (mouse.button === Qt.MiddleButton) {
           root.setActivity("success", "Test success animation", 2500)
         } else {
           if (root.petPickerOpen) root.close()

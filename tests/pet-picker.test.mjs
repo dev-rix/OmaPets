@@ -66,14 +66,14 @@ assert.match(
 
 assert.match(
   qml,
-  /acceptedButtons:\s*Qt\.LeftButton\s*\|\s*Qt\.MiddleButton[\s\S]*?onClicked:\s*function\(mouse\)\s*\{[\s\S]*?mouse\.button\s*===\s*Qt\.MiddleButton[\s\S]*?else\s*\{[\s\S]*?root\.openPetPicker\(\)/,
+  /acceptedButtons:\s*Qt\.LeftButton\s*\|\s*Qt\.MiddleButton\s*\|\s*Qt\.RightButton[\s\S]*?onClicked:\s*function\(mouse\)\s*\{[\s\S]*?mouse\.button\s*===\s*Qt\.RightButton[\s\S]*?root\.cycleActivityState\(\)[\s\S]*?mouse\.button\s*===\s*Qt\.MiddleButton[\s\S]*?else\s*\{[\s\S]*?root\.openPetPicker\(\)/,
   "left-clicking the pet must open the pet panel",
 )
 
-assert.doesNotMatch(
+assert.match(
   qml,
-  /acceptedButtons:[^\n]*Qt\.RightButton/,
-  "the pet must not handle right-clicks",
+  /function\s+cycleActivityState\(\)\s*\{[\s\S]*?\["idle",\s*"working",\s*"waiting",\s*"success",\s*"error"\][\s\S]*?setActivity\(next,\s*"",\s*5000\)/,
+  "right-clicking the pet must cycle through every activity status",
 )
 
 assert.doesNotMatch(

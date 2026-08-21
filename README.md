@@ -33,4 +33,5 @@ agents, then press Enter. Restart any open agent sessions after installation.
 
 Left-click the pet to list installed pets and switch between them. The choice is
 saved in the bar configuration. Select **Open folder** to browse the installed
-pet files. Middle-click previews success. Hover for the current state and detail.
+pet files. Right-click cycles through pet statuses, and middle-click previews
+success. Hover for the current state and detail.
