@@ -16,6 +16,10 @@ for (const script of ["scan-pets", "detect-agent"]) {
   assert.match(qml, new RegExp(`Qt\\.resolvedUrl\\(\\"bin/${script}\\"\\)`))
 }
 
+const installerUrl = new URL("../bin/omapets", import.meta.url)
+assert.equal(readFileSync(installerUrl, "utf8").startsWith("#!/usr/bin/env bash\n"), true)
+assert.notEqual(statSync(installerUrl).mode & 0o111, 0, "the Bash pet installer must be executable")
+
 assert.doesNotMatch(qml, /command:\s*\["sh",\s*"-c"/)
 
 assert.doesNotMatch(
@@ -50,7 +54,7 @@ assert.match(
 
 assert.match(
   qml,
-  /GridView\s*\{[\s\S]*?anchors\.top:\s*petPickerTitle\.bottom[\s\S]*?anchors\.bottom:\s*parent\.bottom[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
+  /GridView\s*\{[\s\S]*?anchors\.top:\s*petPickerHeader\.bottom[\s\S]*?anchors\.bottom:\s*parent\.bottom[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
   "the pet grid must fill a vertically scrollable viewport",
 )
 
@@ -62,14 +66,20 @@ assert.match(
 
 assert.match(
   qml,
-  /No pets installed yet[\s\S]*?How to download pets/,
-  "an empty pets directory must show download instructions",
+  /Button\s*\{\s*id:\s*installPetButton[\s\S]*?text:\s*"Install pet"[\s\S]*?onClicked:\s*root\.openPetInstaller\(\)/,
+  "the pet panel must expose its installer even when pets are already available",
 )
 
 assert.match(
   qml,
-  /command:\s*\["xdg-open",\s*"https:\/\/github\.com\/yesmeck\/OmaPets#install-a-pet"\]/,
-  "the download instructions must link to the README",
+  /Qt\.resolvedUrl\("bin\/omapets"\)[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
+  "the installer button must run the bundled Bash installer in an OmaPets terminal",
+)
+
+assert.doesNotMatch(
+  qml,
+  /omarchy-launch-floating-terminal-with-presentation/,
+  "the installer terminal must not render the Omarchy presentation banner",
 )
 
 assert.match(

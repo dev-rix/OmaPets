@@ -99,6 +99,16 @@ BarWidget {
     refreshAvailablePets()
   }
 
+  function openPetInstaller() {
+    if (!root.bar) return
+    var installer = root.filePath(Qt.resolvedUrl("bin/omapets"))
+    var terminal = "setsid uwsm-app -- xdg-terminal-exec"
+      + " --app-id=org.omarchy.terminal --title=OmaPets -e bash -c "
+      + Util.shellQuote(installer)
+    root.close()
+    root.bar.run(terminal)
+  }
+
   function parseAvailablePets(output) {
     var pets = []
     var lines = String(output || "").trim().split("\n")
@@ -269,12 +279,6 @@ BarWidget {
   }
 
   Process {
-    id: readmeOpener
-    running: false
-    command: ["xdg-open", "https://github.com/yesmeck/OmaPets#install-a-pet"]
-  }
-
-  Process {
     id: detector
     running: false
     command: [root.filePath(Qt.resolvedUrl("bin/detect-agent")), String(root.activeWindowSec), root.home]
@@ -363,23 +367,42 @@ BarWidget {
       id: petPickerContent
       anchors.fill: parent
 
-      Text {
-        id: petPickerTitle
+      Item {
+        id: petPickerHeader
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        text: petScanner.running ? "Finding pets…" : "Choose pet"
-        color: root.bar.foreground
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.body
-        font.bold: true
+        height: Math.max(petPickerTitle.implicitHeight, installPetButton.implicitHeight)
+
+        Text {
+          id: petPickerTitle
+          anchors.left: parent.left
+          anchors.right: installPetButton.left
+          anchors.rightMargin: Style.spacing.md
+          anchors.verticalCenter: parent.verticalCenter
+          text: petScanner.running ? "Finding pets…" : "Choose pet"
+          color: root.bar.foreground
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
+        }
+
+        Button {
+          id: installPetButton
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Install pet"
+          bordered: true
+          focusable: true
+          onClicked: root.openPetInstaller()
+        }
       }
 
       GridView {
         id: petGrid
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: petPickerTitle.bottom
+        anchors.top: petPickerHeader.bottom
         anchors.topMargin: Style.spacing.md
         anchors.bottom: parent.bottom
         cellWidth: width / 3
@@ -445,14 +468,14 @@ BarWidget {
       Column {
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: petPickerTitle.bottom
+        anchors.top: petPickerHeader.bottom
         anchors.topMargin: Style.space(36)
         spacing: Style.spacing.md
         visible: !petScanner.running && root.availablePets.length === 0
 
         Text {
           width: parent.width
-          text: "No pets installed yet. Download a pet to get started."
+          text: "No pets installed yet. Use Install pet to add one."
           color: root.bar.foreground
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.body
@@ -460,13 +483,6 @@ BarWidget {
           wrapMode: Text.WordWrap
         }
 
-        Button {
-          anchors.horizontalCenter: parent.horizontalCenter
-          text: "How to download pets"
-          bordered: true
-          focusable: true
-          onClicked: if (!readmeOpener.running) readmeOpener.running = true
-        }
       }
     }
   }

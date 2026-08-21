@@ -17,18 +17,18 @@ shows a placeholder. Right-click it to open the pet picker.
 
 ## Install a pet
 
-The installer bundled with the plugin supports [Petdex](https://petdex.dev/),
-[Codex Pets](https://codex-pets.net/), and [OpenPets](https://openpets.dev/)
-URLs. Using the bundled installer ensures the code being run is the same
-version that was reviewed and installed with the plugin:
+Open the OmaPets panel and select **Install pet**. A floating terminal shows
+the supported URL formats, prompts for a pet page URL, installs the pet, and
+displays its local path. Press any key when finished to close the terminal;
+the pet picker refreshes automatically.
 
-```bash
-~/.config/omarchy/plugins/omapets/bin/omapets.js https://petdex.dev/pets/kabi
-~/.config/omarchy/plugins/omapets/bin/omapets.js 'https://codex-pets.net/#/pets/dario'
-~/.config/omarchy/plugins/omapets/bin/omapets.js https://openpets.dev/pets/player-05-b28eec8e
-```
+The bundled Bash installer supports [Petdex](https://petdex.dev/),
+[Codex Pets](https://codex-pets.net/), and [OpenPets](https://openpets.dev/).
+It uses the standard Omarchy tools `bash`, `curl`, and `jq`; Node.js and npm are
+not required.
 
-Quote Codex Pets URLs so the shell preserves the `#` route.
+The installer is versioned with the plugin, validates provider hosts and HTTPS
+redirects, and never overwrites an existing pet directory.
 
 Pets are installed into `~/.config/omapets/pets/<pet-id>` and appear in the
 right-click picker. Existing pet folders are never overwritten. Use
