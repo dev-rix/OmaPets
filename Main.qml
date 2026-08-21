@@ -384,12 +384,12 @@ BarWidget {
       acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
       hoverEnabled: true
       onClicked: function(mouse) {
-        if (mouse.button === Qt.RightButton) {
+        if (mouse.button === Qt.MiddleButton) {
+          root.setActivity("success", "Test success animation", 2500)
+        } else {
           if (root.petPickerOpen) root.close()
           else root.openPetPicker()
         }
-        else if (mouse.button === Qt.MiddleButton) root.setActivity("success", "Test success animation", 2500)
-        else root.setActivity("working", "Test working animation", 1800)
       }
     }
   }

@@ -66,6 +66,18 @@ assert.match(
 
 assert.match(
   qml,
+  /onClicked:\s*function\(mouse\)\s*\{[\s\S]*?mouse\.button\s*===\s*Qt\.MiddleButton[\s\S]*?else\s*\{[\s\S]*?root\.openPetPicker\(\)/,
+  "left-clicking the pet must open the pet panel",
+)
+
+assert.doesNotMatch(
+  qml,
+  /Test working animation/,
+  "the pet must not expose a synthetic working-animation action",
+)
+
+assert.match(
+  qml,
   /contentHeight:\s*Style\.space\(400\)/,
   "the panel must use a fixed 400-pixel height",
 )
