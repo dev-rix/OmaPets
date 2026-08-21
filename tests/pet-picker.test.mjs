@@ -66,8 +66,8 @@ assert.match(
 
 assert.match(
   qml,
-  /contentHeight:\s*Style\.space\(320\)/,
-  "the panel must use a fixed 320-pixel height",
+  /contentHeight:\s*Style\.space\(344\)/,
+  "the panel must use a fixed 344-pixel height",
 )
 
 assert.match(

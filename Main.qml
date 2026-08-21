@@ -394,7 +394,7 @@ BarWidget {
     owner: root
     open: root.petPickerOpen
     contentWidth: petPicker.fittedContentWidth(Style.space(360))
-    contentHeight: Style.space(320)
+    contentHeight: Style.space(344)
 
     Item {
       id: petPickerContent
