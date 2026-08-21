@@ -78,6 +78,18 @@ assert.match(
 
 assert.match(
   qml,
+  /Button\s*\{\s*id:\s*installHooksButton[\s\S]*?text:\s*"Install hooks"[\s\S]*?onClicked:\s*root\.openAgentHookInstaller\(\)/,
+  "the pet panel must expose interactive agent hook installation",
+)
+
+assert.match(
+  qml,
+  /Qt\.resolvedUrl\("bin\/install-agent-hooks"\)[\s\S]*?--interactive[\s\S]*?xdg-terminal-exec/,
+  "agent hook installation must open in an OmaPets floating terminal",
+)
+
+assert.match(
+  qml,
   /Qt\.resolvedUrl\("bin\/omapets"\)[\s\S]*?xdg-terminal-exec[\s\S]*?--title=OmaPets/,
   "the installer button must run the bundled Bash installer in an OmaPets terminal",
 )

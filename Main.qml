@@ -110,6 +110,17 @@ BarWidget {
     root.bar.run(terminal)
   }
 
+  function openAgentHookInstaller() {
+    if (!root.bar) return
+    var installer = root.filePath(Qt.resolvedUrl("bin/install-agent-hooks"))
+    var command = Util.shellQuote(installer) + " --interactive"
+    var terminal = "setsid uwsm-app -- xdg-terminal-exec"
+      + " --app-id=org.omarchy.terminal --title=OmaPets -e bash -c "
+      + Util.shellQuote(command)
+    root.close()
+    root.bar.run(terminal)
+  }
+
   function parseAvailablePets(output) {
     var pets = []
     var lines = String(output || "").trim().split("\n")
@@ -378,12 +389,13 @@ BarWidget {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: Math.max(petPickerTitle.implicitHeight, installPetButton.implicitHeight)
+        height: Math.max(petPickerTitle.implicitHeight, installPetButton.implicitHeight,
+          installHooksButton.implicitHeight)
 
         Text {
           id: petPickerTitle
           anchors.left: parent.left
-          anchors.right: installPetButton.left
+          anchors.right: installHooksButton.left
           anchors.rightMargin: Style.spacing.md
           anchors.verticalCenter: parent.verticalCenter
           text: petScanner.running ? "Finding pets…" : "Choose pet"
@@ -391,6 +403,17 @@ BarWidget {
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.body
           font.bold: true
+        }
+
+        Button {
+          id: installHooksButton
+          anchors.right: installPetButton.left
+          anchors.rightMargin: Style.spacing.sm
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Install hooks"
+          bordered: true
+          focusable: true
+          onClicked: root.openAgentHookInstaller()
         }
 
         Button {
