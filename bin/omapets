@@ -25,6 +25,7 @@ Examples:
   omapets https://petdex.dev/pets/kabi
   omapets 'https://codex-pets.net/#/pets/dario'
   omapets https://openpets.dev/pets/player-05-b28eec8e
+  omapets https://github.com/owner/private-pet
 
 By default, pets are installed under XDG_CONFIG_HOME/omapets/pets,
 falling back to ~/.config/omapets/pets when XDG_CONFIG_HOME is unset.
@@ -40,6 +41,10 @@ Paste a pet page URL from one of these providers:
   Petdex:      https://petdex.dev/pets/<pet-id>
   Codex Pets:  https://codex-pets.net/#/pets/<pet-id>
   OpenPets:    https://openpets.dev/pets/<pet-id>
+  GitHub:      https://github.com/<owner>/<repository>
+
+For private GitHub repositories, authenticate first with:
+  gh auth login
 EOF
   printf '\nThe pet will be installed in %s.\n' "$pets_dir"
 }
@@ -138,8 +143,8 @@ safe_fetch() {
 }
 
 parse_pet_source() {
-  local url=$1 host route
-  host=$(url_host "$url") || { fail "Pet URL must use HTTPS on petdex.dev, codex-pets.net, or openpets.dev"; return 1; }
+  local url=$1 host route github_path
+  host=$(url_host "$url") || { fail "Pet URL must use HTTPS on petdex.dev, codex-pets.net, openpets.dev, or github.com"; return 1; }
 
   case "$host" in
     codex-pets.net|www.codex-pets.net)
@@ -158,7 +163,15 @@ parse_pet_source() {
         || { fail "Pet URL must look like https://petdex.dev/pets/<pet-id>"; return 1; }
       provider=petdex; slug=${BASH_REMATCH[2]}
       ;;
-    *) fail "Pet URL must use HTTPS on petdex.dev, codex-pets.net, or openpets.dev"; return 1 ;;
+    github.com|www.github.com)
+      github_path=${url#https://}; github_path=${github_path#*/}
+      [[ $github_path =~ ^([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(/)?$ ]] \
+        || { fail "GitHub pet URL must look like https://github.com/<owner>/<repository>"; return 1; }
+      github_owner=${BASH_REMATCH[1]}; github_repo=${BASH_REMATCH[2]%.git}
+      [[ $github_repo =~ ^[A-Za-z0-9_.-]+$ ]] || { fail "GitHub repository name is invalid"; return 1; }
+      provider=github; slug="$github_repo"
+      ;;
+    *) fail "Pet URL must use HTTPS on petdex.dev, codex-pets.net, openpets.dev, or github.com"; return 1 ;;
   esac
 }
 
@@ -224,6 +237,28 @@ install_openpets() {
   safe_fetch "$spritesheet_url" "$OPENPETS_HOSTS" "$spritesheet" || return 1
 }
 
+install_github() {
+  local pet_json=$1 spritesheet=$2 sheet_path endpoint
+  command -v gh >/dev/null || { fail "gh is required for GitHub pets"; return 1; }
+  log "Loading GitHub pet $github_owner/$github_repo"
+  endpoint="repos/$github_owner/$github_repo/contents/pet.json"
+  gh api --header 'Accept: application/vnd.github.raw+json' "$endpoint" >"$pet_json" \
+    || { fail "Could not read pet.json from GitHub repository $github_owner/$github_repo; check gh auth status and repository access"; return 1; }
+  jq -e . "$pet_json" >/dev/null 2>&1 \
+    || { fail "GitHub pet.json is invalid: $github_owner/$github_repo"; return 1; }
+  sheet_path=$(jq -er '.spritesheetPath | strings' "$pet_json") \
+    || { fail "GitHub pet.json must include spritesheetPath"; return 1; }
+  [[ $sheet_path =~ ^spritesheet\.(webp|png)$ ]] \
+    || { fail "GitHub pet spritesheetPath must be spritesheet.webp or spritesheet.png"; return 1; }
+  endpoint="repos/$github_owner/$github_repo/contents/$sheet_path"
+  gh api --header 'Accept: application/vnd.github.raw+json' "$endpoint" >"$spritesheet" \
+    || { fail "Could not read $sheet_path from GitHub repository $github_owner/$github_repo"; return 1; }
+  local size
+  size=$(stat -c %s "$spritesheet") || return 1
+  (( size > 0 && size <= MAX_FILE_BYTES )) \
+    || { fail "GitHub spritesheet is empty or larger than $MAX_FILE_BYTES bytes"; return 1; }
+}
+
 normalize_id() {
   local value=$1 normalized
   if command -v iconv >/dev/null; then
@@ -248,6 +283,7 @@ install_pet() {
     petdex) install_petdex "$manifest" "$pet_json" "$downloaded_sheet" || return 1 ;;
     codex-pets) install_codex_pets "$detail" "$pet_json" "$downloaded_sheet" || return 1 ;;
     openpets) install_openpets "$manifest" "$pet_json" "$downloaded_sheet" || return 1 ;;
+    github) install_github "$pet_json" "$downloaded_sheet" || return 1 ;;
   esac
 
   log "Validating downloaded pet package"

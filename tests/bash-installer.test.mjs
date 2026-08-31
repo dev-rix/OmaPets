@@ -7,13 +7,16 @@ import test from "node:test"
 
 const installer = resolve("bin/omapets")
 
-async function harness(fixtures) {
+async function harness(fixtures, githubFixtures = {}) {
   const root = await mkdtemp(join(tmpdir(), "omarpets-installer-test-"))
   const fakeBin = join(root, "bin")
   const fixtureFile = join(root, "fixtures.json")
+  const githubFixtureFile = join(root, "github-fixtures.json")
   const curlLog = join(root, "curl.log")
   await mkdir(fakeBin)
   await writeFile(fixtureFile, JSON.stringify(fixtures))
+  await writeFile(githubFixtureFile, JSON.stringify(githubFixtures))
+  await writeFile(curlLog, "")
   await writeFile(join(fakeBin, "curl"), `#!/usr/bin/env bash
 set -euo pipefail
 headers=
@@ -39,6 +42,13 @@ printf '%s' "$body" >"$output"
 printf '%s' "$status"
 `)
   await chmod(join(fakeBin, "curl"), 0o755)
+  await writeFile(join(fakeBin, "gh"), `#!/usr/bin/env bash
+set -euo pipefail
+endpoint="\${@: -1}"
+entry=$(jq -cer --arg endpoint "$endpoint" '.[$endpoint]' "$FAKE_GH_FIXTURES")
+jq -jr '.body // empty' <<<"$entry"
+`)
+  await chmod(join(fakeBin, "gh"), 0o755)
   return {
     root,
     petsDir: join(root, "pets"),
@@ -48,6 +58,7 @@ printf '%s' "$status"
       PATH: `${fakeBin}:${process.env.PATH}`,
       FAKE_CURL_FIXTURES: fixtureFile,
       FAKE_CURL_LOG: curlLog,
+      FAKE_GH_FIXTURES: githubFixtureFile,
     },
   }
 }
@@ -164,6 +175,24 @@ test("installs OpenPets catalog metadata", async () => {
   assert.equal(JSON.parse(await readFile(join(setup.petsDir, "player-05/pet.json"), "utf8")).displayName, "Player")
 })
 
+test("installs a private GitHub pet through the authenticated GitHub CLI", async () => {
+  const setup = await harness({}, {
+    "repos/dev-rix/cortana-tokyonight/contents/pet.json": {
+      body: JSON.stringify({ id: "cortana-tokyonight", displayName: "Cortana Tokyo Night", spritesheetPath: "spritesheet.png" }),
+    },
+    "repos/dev-rix/cortana-tokyonight/contents/spritesheet.png": { body: "PNG" },
+  })
+  const result = spawnSync(installer, ["https://github.com/dev-rix/cortana-tokyonight", "--dir", setup.petsDir], {
+    env: setup.env,
+    encoding: "utf8",
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /Installing github pet cortana-tokyonight/)
+  assert.equal(JSON.parse(await readFile(join(setup.petsDir, "cortana-tokyonight/pet.json"), "utf8")).displayName, "Cortana Tokyo Night")
+  assert.equal(await readFile(join(setup.petsDir, "cortana-tokyonight/spritesheet.png"), "utf8"), "PNG")
+  assert.equal((await readFile(setup.curlLog, "utf8")).trim(), "")
+})
+
 test("has interactive help without requiring Node or npm", async () => {
   const source = await readFile(installer, "utf8")
   const help = spawnSync(installer, ["--help"], { encoding: "utf8" })
@@ -172,7 +201,8 @@ test("has interactive help without requiring Node or npm", async () => {
   assert.match(help.stdout, /^Usage:\n  omapets$/m)
   assert.match(help.stdout, /XDG_CONFIG_HOME\/omapets\/pets/)
   assert.match(help.stdout, /falling back to ~\/\.config\/omapets\/pets/)
-  assert.match(source, /interactive_help[\s\S]*Petdex:[\s\S]*Codex Pets:[\s\S]*OpenPets:/)
+  assert.match(source, /interactive_help[\s\S]*Petdex:[\s\S]*Codex Pets:[\s\S]*OpenPets:[\s\S]*GitHub:/)
+  assert.match(source, /private GitHub repositories[\s\S]*gh auth login/)
   assert.match(source, /interactive_help "\$pets_dir"/)
   assert.match(source, /Installed %s to %s/)
   assert.match(source, /Press any key to close…/)

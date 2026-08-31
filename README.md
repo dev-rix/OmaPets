@@ -25,7 +25,11 @@ as its default pet.
 
 Open the OmaPets panel and select **Install pet**. Paste a pet URL from
 [Petdex](https://petdex.dev/), [Codex Pets](https://codex-pets.net/), or
-[OpenPets](https://openpets.dev/). When installation finishes, close the
+[OpenPets](https://openpets.dev/). GitHub repositories are also supported when
+they contain an OmaPets `pet.json` and spritesheet at their repository root.
+For private GitHub repositories, authenticate the GitHub CLI first with
+`gh auth login`, then paste a URL such as
+`https://github.com/owner/private-pet`. When installation finishes, close the
 terminal and select your new pet from the panel.
 
 ## Agent status
