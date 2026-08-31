@@ -16,6 +16,35 @@ omarchy plugin add https://github.com/yesmeck/OmaPets.git --enable --yes
 
 Click the pet in the bar to open the OmaPets panel.
 
+## About this fork
+
+This repository is a personal fork of the original [OmaPets project](https://github.com/yesmeck/OmaPets).
+The upstream project is the recommended choice for most users and is the best
+place to receive the author's normal updates:
+
+```bash
+omarchy plugin add https://github.com/yesmeck/OmaPets.git --enable --yes
+```
+
+This fork is maintained for my own vibe-coding setup. If you want the personal
+customizations, install it instead with:
+
+```bash
+omarchy plugin add https://github.com/dev-rix/OmaPets.git --enable --yes
+```
+
+The fork currently adds:
+
+- A magnified status window for waiting and error states, with yellow warning
+  and red stop indicators in the top bar.
+- Automatic dismissal of the magnified window after three seconds while the
+  computer is active, while allowing it to remain visible during idle time.
+- Discovery of pets installed through symlinks, including GNU Stow-managed
+  dotfiles.
+- Installation of pets from authenticated private GitHub repositories.
+- Support for GitHub pet collections: a root `pet.json` is one pet; otherwise,
+  immediate subfolders containing `pet.json` are installed as separate pets.
+
 ## Bundled pet
 
 OmaPets includes [Glitchcat from Petdex](https://petdex.dev/pets/glitchcat)
