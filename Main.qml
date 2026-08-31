@@ -76,11 +76,19 @@ BarWidget {
   property string petName: "No pet installed"
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
+  property bool attentionDismissed: false
   readonly property bool tooltipHovered: hover.hovered
+  readonly property var idleService: bar && bar.shell
+    && typeof bar.shell.firstPartyServiceFor === "function"
+    ? bar.shell.firstPartyServiceFor("omarchy.idle") : null
+  property bool userIdle: false
   readonly property string statusTooltipText:
     (detectedAgent === "" ? "" : agentLabel(detectedAgent) + " · ")
     + (stateLabels[activityState] || activityState)
     + (activityDetail === "" ? "" : "\n" + activityDetail)
+  readonly property bool attentionOpen:
+    (activityState === "waiting" || activityState === "error")
+    && !attentionDismissed
 
   function setting(key, fallback) {
     return settings && settings[key] !== undefined ? settings[key] : fallback
@@ -222,6 +230,7 @@ BarWidget {
 
   function setActivity(state, detail, holdMs) {
     activityState = normalizedState(state)
+    attentionDismissed = false
     selectAnimation(activityState)
     activityDetail = String(detail || "")
     overrideUntil = holdMs > 0 ? Date.now() + holdMs : 0
@@ -233,6 +242,30 @@ BarWidget {
     var current = states.indexOf(activityState)
     var next = states[(current + 1) % states.length]
     setActivity(next, "", 5000)
+  }
+
+  function dismissAttention() {
+    attentionDismissed = true
+  }
+
+  function refreshUserIdle() {
+    if (!idleService || typeof idleService.statusJson !== "function") return
+    try {
+      userIdle = JSON.parse(idleService.statusJson()).idle === true
+    } catch (error) {
+      userIdle = false
+    }
+  }
+
+  onAttentionOpenChanged: {
+    if (!attentionOpen) attentionDismissTimer.stop()
+    else if (!userIdle) attentionDismissTimer.restart()
+  }
+
+  onUserIdleChanged: {
+    if (!attentionOpen) return
+    if (userIdle) attentionDismissTimer.stop()
+    else attentionDismissTimer.restart()
   }
 
   function applyDetectedState(state) {
@@ -411,6 +444,22 @@ BarWidget {
     }
   }
 
+  Timer {
+    id: userIdlePollTimer
+    interval: 500
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.refreshUserIdle()
+  }
+
+  Timer {
+    id: attentionDismissTimer
+    interval: 3000
+    repeat: false
+    onTriggered: if (root.attentionOpen && !root.userIdle) root.dismissAttention()
+  }
+
   implicitWidth: Math.round(38 * petScale)
   implicitHeight: barSize
 
@@ -434,7 +483,16 @@ BarWidget {
       smooth: false
       mipmap: false
       asynchronous: true
-      visible: root.petAvailable
+      visible: root.petAvailable && !root.attentionOpen
+    }
+
+    Text {
+      anchors.centerIn: parent
+      text: root.activityState === "error" ? "🛑" : "⚠"
+      color: root.activityState === "error" ? "#ef4444" : "#facc15"
+      font.family: root.bar.fontFamily
+      font.pixelSize: Style.font.body
+      visible: root.attentionOpen
     }
 
     MouseArea {
@@ -450,6 +508,49 @@ BarWidget {
           if (root.petPickerOpen) root.close()
           else root.openPetPicker()
         }
+      }
+    }
+  }
+
+  PopupCard {
+    id: attentionCard
+    anchorItem: root
+    bar: root.bar
+    owner: root
+    open: root.attentionOpen
+    triggerMode: "hover"
+    margin: Style.spacing.sm
+    contentWidth: Style.space(132)
+    contentHeight: Style.space(148)
+
+    Item {
+      anchors.fill: parent
+
+      Item {
+        id: attentionSpriteViewport
+        width: Style.space(104)
+        height: width * 208 / 192
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        clip: true
+
+        Image {
+          width: attentionSpriteViewport.width * 8
+          height: attentionSpriteViewport.height * root.atlasRows
+          x: -root.currentFrame * attentionSpriteViewport.width
+          y: -root.animationRow * attentionSpriteViewport.height
+          source: root.spritesheetUrl
+          cache: false
+          smooth: false
+          mipmap: false
+          asynchronous: true
+          visible: root.petAvailable
+        }
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        onClicked: root.dismissAttention()
       }
     }
   }

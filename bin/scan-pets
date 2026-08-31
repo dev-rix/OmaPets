@@ -7,7 +7,7 @@ previews_dir="${2:?previews directory is required}"
 mkdir -p "$previews_dir"
 [[ -d "$pets_dir" ]] || exit 0
 
-find "$pets_dir" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\n' 2>/dev/null \
+find -L "$pets_dir" -mindepth 2 -maxdepth 2 -type f -name pet.json -printf '%h\n' 2>/dev/null \
   | sort \
   | while IFS= read -r pet_dir; do
       id="${pet_dir##*/}"
