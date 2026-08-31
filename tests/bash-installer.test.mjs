@@ -177,6 +177,12 @@ test("installs OpenPets catalog metadata", async () => {
 
 test("installs a private GitHub pet through the authenticated GitHub CLI", async () => {
   const setup = await harness({}, {
+    "repos/dev-rix/cortana-tokyonight/contents": {
+      body: JSON.stringify([
+        { name: "pet.json", path: "pet.json", type: "file" },
+        { name: "spritesheet.png", path: "spritesheet.png", type: "file" },
+      ]),
+    },
     "repos/dev-rix/cortana-tokyonight/contents/pet.json": {
       body: JSON.stringify({ id: "cortana-tokyonight", displayName: "Cortana Tokyo Night", spritesheetPath: "spritesheet.png" }),
     },
@@ -190,6 +196,46 @@ test("installs a private GitHub pet through the authenticated GitHub CLI", async
   assert.match(result.stdout, /Installing github pet cortana-tokyonight/)
   assert.equal(JSON.parse(await readFile(join(setup.petsDir, "cortana-tokyonight/pet.json"), "utf8")).displayName, "Cortana Tokyo Night")
   assert.equal(await readFile(join(setup.petsDir, "cortana-tokyonight/spritesheet.png"), "utf8"), "PNG")
+  assert.equal((await readFile(setup.curlLog, "utf8")).trim(), "")
+})
+
+test("installs every one-level GitHub pet folder when no root pet.json exists", async () => {
+  const setup = await harness({}, {
+    "repos/dev-rix/pet-collection/contents": {
+      body: JSON.stringify([
+        { name: "alpha", path: "alpha", type: "dir" },
+        { name: "beta", path: "beta", type: "dir" },
+        { name: "nested", path: "nested", type: "dir" },
+      ]),
+    },
+    "repos/dev-rix/pet-collection/contents/alpha": {
+      body: JSON.stringify([{ name: "pet.json", path: "alpha/pet.json", type: "file" }, { name: "spritesheet.png", path: "alpha/spritesheet.png", type: "file" }]),
+    },
+    "repos/dev-rix/pet-collection/contents/beta": {
+      body: JSON.stringify([{ name: "pet.json", path: "beta/pet.json", type: "file" }, { name: "spritesheet.webp", path: "beta/spritesheet.webp", type: "file" }]),
+    },
+    "repos/dev-rix/pet-collection/contents/nested": {
+      body: JSON.stringify([{ name: "deeper", path: "nested/deeper", type: "dir" }]),
+    },
+    "repos/dev-rix/pet-collection/contents/alpha/pet.json": {
+      body: JSON.stringify({ id: "alpha", displayName: "Alpha", spritesheetPath: "spritesheet.png" }),
+    },
+    "repos/dev-rix/pet-collection/contents/alpha/spritesheet.png": { body: "ALPHA" },
+    "repos/dev-rix/pet-collection/contents/beta/pet.json": {
+      body: JSON.stringify({ id: "beta", displayName: "Beta", spritesheetPath: "spritesheet.webp" }),
+    },
+    "repos/dev-rix/pet-collection/contents/beta/spritesheet.webp": { body: "BETA" },
+  })
+  const result = spawnSync(installer, ["https://github.com/dev-rix/pet-collection", "--dir", setup.petsDir], {
+    env: setup.env,
+    encoding: "utf8",
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /Installed Alpha to/)
+  assert.match(result.stdout, /Installed Beta to/)
+  assert.equal(await readFile(join(setup.petsDir, "alpha/spritesheet.png"), "utf8"), "ALPHA")
+  assert.equal(await readFile(join(setup.petsDir, "beta/spritesheet.webp"), "utf8"), "BETA")
   assert.equal((await readFile(setup.curlLog, "utf8")).trim(), "")
 })
 

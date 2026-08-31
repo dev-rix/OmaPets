@@ -175,6 +175,40 @@ parse_pet_source() {
   esac
 }
 
+github_api_raw() {
+  local endpoint=$1 output=$2
+  gh api --header 'Accept: application/vnd.github.raw+json' "$endpoint" >"$output"
+}
+
+github_add_package() {
+  local package_path=$1 package_dir=$2 pet_endpoint sheet_path sheet_endpoint size
+  mkdir -p -- "$package_dir" || return 1
+  if [[ -n $package_path ]]; then
+    pet_endpoint="repos/$github_owner/$github_repo/contents/$package_path/pet.json"
+  else
+    pet_endpoint="repos/$github_owner/$github_repo/contents/pet.json"
+  fi
+  github_api_raw "$pet_endpoint" "$package_dir/pet.json" \
+    || { fail "Could not read pet.json from GitHub repository $github_owner/$github_repo${package_path:+/$package_path}"; return 1; }
+  jq -e . "$package_dir/pet.json" >/dev/null 2>&1 \
+    || { fail "GitHub pet.json is invalid: $github_owner/$github_repo${package_path:+/$package_path}"; return 1; }
+  sheet_path=$(jq -er '.spritesheetPath | strings' "$package_dir/pet.json") \
+    || { fail "GitHub pet.json must include spritesheetPath: $github_owner/$github_repo${package_path:+/$package_path}"; return 1; }
+  [[ $sheet_path =~ ^spritesheet\.(webp|png)$ ]] \
+    || { fail "GitHub pet spritesheetPath must be spritesheet.webp or spritesheet.png"; return 1; }
+  if [[ -n $package_path ]]; then
+    sheet_endpoint="repos/$github_owner/$github_repo/contents/$package_path/$sheet_path"
+  else
+    sheet_endpoint="repos/$github_owner/$github_repo/contents/$sheet_path"
+  fi
+  github_api_raw "$sheet_endpoint" "$package_dir/$sheet_path" \
+    || { fail "Could not read $sheet_path from GitHub repository $github_owner/$github_repo${package_path:+/$package_path}"; return 1; }
+  size=$(stat -c %s "$package_dir/$sheet_path") || return 1
+  (( size > 0 && size <= MAX_FILE_BYTES )) \
+    || { fail "GitHub spritesheet is empty or larger than $MAX_FILE_BYTES bytes"; return 1; }
+  github_package_dirs+=("$package_dir")
+}
+
 install_petdex() {
   local manifest=$1 pet_json=$2 spritesheet=$3 fields pet_json_url spritesheet_url
   log "Loading Petdex manifest"
@@ -238,25 +272,28 @@ install_openpets() {
 }
 
 install_github() {
-  local pet_json=$1 spritesheet=$2 sheet_path endpoint
+  local root_listing child_listing package_path package_name package_index=0
   command -v gh >/dev/null || { fail "gh is required for GitHub pets"; return 1; }
   log "Loading GitHub pet $github_owner/$github_repo"
-  endpoint="repos/$github_owner/$github_repo/contents/pet.json"
-  gh api --header 'Accept: application/vnd.github.raw+json' "$endpoint" >"$pet_json" \
-    || { fail "Could not read pet.json from GitHub repository $github_owner/$github_repo; check gh auth status and repository access"; return 1; }
-  jq -e . "$pet_json" >/dev/null 2>&1 \
-    || { fail "GitHub pet.json is invalid: $github_owner/$github_repo"; return 1; }
-  sheet_path=$(jq -er '.spritesheetPath | strings' "$pet_json") \
-    || { fail "GitHub pet.json must include spritesheetPath"; return 1; }
-  [[ $sheet_path =~ ^spritesheet\.(webp|png)$ ]] \
-    || { fail "GitHub pet spritesheetPath must be spritesheet.webp or spritesheet.png"; return 1; }
-  endpoint="repos/$github_owner/$github_repo/contents/$sheet_path"
-  gh api --header 'Accept: application/vnd.github.raw+json' "$endpoint" >"$spritesheet" \
-    || { fail "Could not read $sheet_path from GitHub repository $github_owner/$github_repo"; return 1; }
-  local size
-  size=$(stat -c %s "$spritesheet") || return 1
-  (( size > 0 && size <= MAX_FILE_BYTES )) \
-    || { fail "GitHub spritesheet is empty or larger than $MAX_FILE_BYTES bytes"; return 1; }
+  root_listing="$temp_root/github-root.json"
+  gh api "repos/$github_owner/$github_repo/contents" >"$root_listing" \
+    || { fail "Could not list GitHub repository $github_owner/$github_repo; check gh auth status and repository access"; return 1; }
+  jq -e 'any(.[]?; .type == "file" and .name == "pet.json")' "$root_listing" >/dev/null 2>&1 \
+    && { github_add_package "" "$temp_root/github-packages/root"; return $?; }
+
+  while IFS=$'\t' read -r package_name package_path; do
+    [[ -n $package_name && -n $package_path ]] || continue
+    child_listing="$temp_root/github-child-$package_index.json"
+    gh api "repos/$github_owner/$github_repo/contents/$package_path" >"$child_listing" \
+      || { fail "Could not inspect GitHub pet folder $package_path"; return 1; }
+    if jq -e 'any(.[]?; .type == "file" and .name == "pet.json")' "$child_listing" >/dev/null 2>&1; then
+      github_add_package "$package_path" "$temp_root/github-packages/$package_index" || return 1
+      ((package_index++))
+    fi
+  done < <(jq -r '.[]? | select(.type == "dir") | [.name, .path] | @tsv' "$root_listing")
+
+  (( ${#github_package_dirs[@]} > 0 )) \
+    || { fail "GitHub repository contains no root pet.json or one-level pet folders with pet.json"; return 1; }
 }
 
 normalize_id() {
@@ -271,7 +308,10 @@ normalize_id() {
 }
 
 install_pet() {
-  local pet_url=$1 pets_dir=$2 manifest detail pet_json downloaded_sheet pet_id sheet_path installed_slug destination staging display_name
+  local pet_url=$1 pets_dir=$2 manifest detail pet_json downloaded_sheet pet_id sheet_path installed_slug destination staging display_name i package_dir
+  local -a package_jsons=() package_sheets=() installed_slugs=() destinations=() display_names=()
+  declare -A seen_destinations=()
+  github_package_dirs=()
   parse_pet_source "$pet_url" || return 1
   log "Installing $provider pet $slug"
   mkdir -p -- "$pets_dir" || return 1
@@ -283,28 +323,50 @@ install_pet() {
     petdex) install_petdex "$manifest" "$pet_json" "$downloaded_sheet" || return 1 ;;
     codex-pets) install_codex_pets "$detail" "$pet_json" "$downloaded_sheet" || return 1 ;;
     openpets) install_openpets "$manifest" "$pet_json" "$downloaded_sheet" || return 1 ;;
-    github) install_github "$pet_json" "$downloaded_sheet" || return 1 ;;
+    github) install_github || return 1 ;;
   esac
 
-  log "Validating downloaded pet package"
-  jq -e . "$pet_json" >/dev/null 2>&1 || { fail "Pet provider returned an invalid pet.json"; return 1; }
-  pet_id=$(jq -er '.id | strings | select(length > 0)' "$pet_json") \
-    || { fail "pet.json must include an ID"; return 1; }
-  sheet_path=$(jq -er '.spritesheetPath | strings' "$pet_json") || true
-  [[ $sheet_path =~ ^spritesheet\.(webp|png)$ ]] \
-    || { fail "pet.json must reference spritesheet.webp or spritesheet.png"; return 1; }
-  installed_slug=$(normalize_id "$pet_id")
-  destination="${pets_dir%/}/$installed_slug"
-  [[ ! -e $destination ]] || { fail "Pet is already installed: $destination"; return 1; }
+  if [[ $provider == github ]]; then
+    for package_dir in "${github_package_dirs[@]}"; do
+      package_jsons+=("$package_dir/pet.json")
+      sheet_path=$(jq -er '.spritesheetPath | strings' "$package_dir/pet.json") || return 1
+      package_sheets+=("$package_dir/$sheet_path")
+    done
+  else
+    package_jsons+=("$pet_json")
+    package_sheets+=("$downloaded_sheet")
+  fi
 
-  staging=$(mktemp -d "${pets_dir%/}/.${slug}.XXXXXX") || return 1
-  log "Writing pet files to $destination"
-  cp -- "$pet_json" "$staging/pet.json" || { rm -rf -- "$staging"; return 1; }
-  cp -- "$downloaded_sheet" "$staging/$sheet_path" || { rm -rf -- "$staging"; return 1; }
-  mv -- "$staging" "$destination" || { rm -rf -- "$staging"; fail "Could not install pet at $destination"; return 1; }
+  log "Validating downloaded pet package(s)"
+  for i in "${!package_jsons[@]}"; do
+    pet_json=${package_jsons[$i]}; downloaded_sheet=${package_sheets[$i]}
+    jq -e . "$pet_json" >/dev/null 2>&1 || { fail "Pet provider returned an invalid pet.json"; return 1; }
+    pet_id=$(jq -er '.id | strings | select(length > 0)' "$pet_json") \
+      || { fail "pet.json must include an ID"; return 1; }
+    sheet_path=$(jq -er '.spritesheetPath | strings' "$pet_json") || true
+    [[ $sheet_path =~ ^spritesheet\.(webp|png)$ ]] \
+      || { fail "pet.json must reference spritesheet.webp or spritesheet.png"; return 1; }
+    [[ -s $downloaded_sheet ]] || { fail "Pet spritesheet is missing or empty: $pet_id"; return 1; }
+    installed_slug=$(normalize_id "$pet_id")
+    destination="${pets_dir%/}/$installed_slug"
+    [[ -z ${seen_destinations[$destination]+x} ]] || { fail "GitHub collection contains duplicate pet ID: $pet_id"; return 1; }
+    seen_destinations[$destination]=1
+    [[ ! -e $destination ]] || { fail "Pet is already installed: $destination"; return 1; }
+    installed_slugs+=("$installed_slug")
+    destinations+=("$destination")
+    display_names+=("$(jq -r '.displayName // .id' "$pet_json")")
+  done
 
-  display_name=$(jq -r '.displayName // .id' "$pet_json")
-  printf 'Installed %s to %s\n' "$display_name" "$destination"
+  for i in "${!package_jsons[@]}"; do
+    pet_json=${package_jsons[$i]}; downloaded_sheet=${package_sheets[$i]}
+    destination=${destinations[$i]}; staging=$(mktemp -d "${pets_dir%/}/.${installed_slugs[$i]}.XXXXXX") || return 1
+    log "Writing pet files to $destination"
+    sheet_path=$(jq -er '.spritesheetPath | strings' "$pet_json")
+    cp -- "$pet_json" "$staging/pet.json" || { rm -rf -- "$staging"; return 1; }
+    cp -- "$downloaded_sheet" "$staging/$sheet_path" || { rm -rf -- "$staging"; return 1; }
+    mv -- "$staging" "$destination" || { rm -rf -- "$staging"; fail "Could not install pet at $destination"; return 1; }
+    printf 'Installed %s to %s\n' "${display_names[$i]}" "$destination"
+  done
 }
 
 main() {
@@ -322,7 +384,7 @@ main() {
   done
 
   if [[ -z $pet_url ]]; then
-    [[ -t 0 && -t 1 ]] || { fail "A Petdex, Codex Pets, or OpenPets URL is required"; return 1; }
+    [[ -t 0 && -t 1 ]] || { fail "A Petdex, Codex Pets, OpenPets, or GitHub URL is required"; return 1; }
     interactive=1
     clear
     printf '\033[32m'; cat "$script_dir/../assets/logo.txt"; printf '\033[0m\n'
