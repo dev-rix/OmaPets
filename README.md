@@ -6,16 +6,6 @@ an error.
 
 https://github.com/user-attachments/assets/be318ba0-94ea-4dd5-a315-9245acc02349
 
-## Install the plugin
-
-Install and enable OmaPets:
-
-```bash
-omarchy plugin add https://github.com/yesmeck/OmaPets.git --enable --yes
-```
-
-Click the pet in the bar to open the OmaPets panel.
-
 ## About this fork
 
 This repository is a personal fork of the original [OmaPets project](https://github.com/yesmeck/OmaPets).
