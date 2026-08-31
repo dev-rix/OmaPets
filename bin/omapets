@@ -177,7 +177,7 @@ parse_pet_source() {
 
 github_api_raw() {
   local endpoint=$1 output=$2
-  gh api --header 'Accept: application/vnd.github.raw+json' "$endpoint" >"$output"
+  gh api -H 'Accept: application/vnd.github.raw' "$endpoint" >"$output"
 }
 
 github_add_package() {
