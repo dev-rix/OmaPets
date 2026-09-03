@@ -40,7 +40,8 @@ The owner's currently important coding agents are:
 
 - Codex
 - Claude Code
-- Agy, whose precise integration requirements are not yet defined
+- Agy, the `agy` provider used by the Persona project; its OmaPets status
+  integration is not yet defined
 
 Local-model agents and other coding agents may become important later.
 
@@ -386,7 +387,8 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
   directory.
 - Identifier collisions are rejected during installation, while an installed
   pet using the bundled `glitchcat` identifier is silently hidden by the picker.
-- Agy and local-model agents do not yet have defined supported integrations.
+- Agy is confirmed as the `agy` provider used by Persona, but Agy and
+  local-model agents do not yet have defined OmaPets status integrations.
 - The automated hook-permissions test uses the unsupported input `working`
   instead of a lifecycle event. A valid `tool-start` event has been verified to
   create a working-state file with owner-only `0600` permissions.
@@ -559,6 +561,16 @@ currently supported.
 - All sessions belonging to one agent type shall share one pet in this
   milestone.
 
+#### Establish Agy status capability
+
+- Agy support is deferred until the multi-pet milestone.
+- Before Agy is represented as supported, its observable behavior shall be
+  evaluated for session opening, session closing, working, blocked, finished,
+  and error states.
+- OmaPets shall not claim a reliable Agy state that Agy cannot expose.
+- Any Agy state that cannot be distinguished reliably shall use the agreed
+  uncertainty behavior rather than being presented as certain.
+
 #### Visibility and ordering
 
 - An agent type's pet shall appear when its first session opens, including
@@ -656,8 +668,8 @@ The following questions do not block documenting or maintaining the current
 product. They must be answered before the related future behavior is considered
 implementation-ready:
 
-- What product or agent does “Agy” refer to, and what user-observable states
-  can it report?
+- Which lifecycle and status events can the Persona-supported `agy` provider
+  report reliably to OmaPets?
 - How does the user assign, review, change, or remove an agent's pet?
 - How can OmaPets reliably recognize session opening and closing for each
   supported agent type?
