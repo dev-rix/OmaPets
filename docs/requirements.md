@@ -396,31 +396,38 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
 - Accessibility expectations beyond hover text and differentiated animation,
   shape, and color have not yet been defined.
 
-## Current implementation backlog
+## Implementation milestones
 
 The items in this section are agreed requirements but are not current
 functionality. They must not be described as shipped until their acceptance
 criteria have been verified.
 
-### Align pet discovery containment
+### Milestone 1: Trustworthy single-pet status
 
-- Manually installed and symbolically linked pets shall receive the same
-  spritesheet containment protection as downloaded pets.
-- Discovery and final selection shall use the same eligibility rule.
-- A pet whose spritesheet escapes its pet folder, including through a symbolic
-  link, shall not appear selectable.
-- Rejection shall not read, convert, or cache the outside file.
+This milestone makes the current status experience dependable and establishes
+the status foundation needed by multi-pet behavior.
 
-### Align GitHub package safeguards
+#### Distinguish status meanings
 
-- GitHub content shall correspond to the repository selected by the user.
-- Empty or oversized GitHub manifests and spritesheets shall be rejected under
-  explicit package limits consistent with other providers.
-- An incomplete GitHub retrieval shall not create an installed pet.
-- Documentation shall describe equivalent safety outcomes without requiring
-  every provider to use identical redirect handling.
+The future status model shall distinguish:
 
-### Fall back when a selected pet cannot load
+- **Inactive:** the agent session is open but is not currently progressing and
+  is not known to require user input; do not magnify.
+- **Working:** the agent is actively progressing toward its goal; do not
+  magnify.
+- **Blocked:** the agent has an active, unfinished goal and has stopped because
+  progress requires user input or action; magnify.
+- **May need attention:** the agent has stopped but OmaPets cannot determine
+  whether it finished or requires the user; magnify.
+- **Finished:** the agent reported normal completion or stopped without
+  reporting an error; do not magnify.
+- **Error:** the agent reported a failure; magnify.
+
+If OmaPets cannot distinguish completion from blockage, it shall favor
+attention and use **May need attention**. A possible false alert is preferable
+to missing an agent that requires the user.
+
+#### Fall back when a selected pet cannot load
 
 - If the selected pet is invalid, missing, or cannot be converted, OmaPets
   shall display bundled Glitchcat so agent status remains visible.
@@ -430,7 +437,7 @@ criteria have been verified.
 - If a missing helper capability caused the failure, the user shall receive a
   clear explanation of what capability is unavailable.
 
-### Make diagnostic previews reliably temporary
+#### Make diagnostic previews reliably temporary
 
 - A right-click state preview shall last five seconds.
 - A middle-click success preview shall last two-and-a-half seconds.
@@ -440,7 +447,63 @@ criteria have been verified.
 - Real agent events received during a preview shall be eligible for display
   when the preview ends.
 
-### Resolve installed-pet identifier collisions
+#### Maintain the agent-hook tests
+
+- The permissions test shall send a supported lifecycle event and verify both
+  its normalized state and owner-only file permissions.
+- The interactive hook-installer scenario shall be verified in the normal
+  project test environment.
+- A workspace-specific process restriction shall not be treated as a product
+  defect without reproduction in a supported environment.
+
+#### Separate hook reporting from automatic inference
+
+- Disabling automatic detection shall stop heuristic status guesses.
+- Installed hook updates shall continue reaching the widget while automatic
+  detection is disabled.
+- The configurable recent-activity window shall apply only to heuristic
+  inference.
+- A recent explicit hook event shall take precedence over an inferred state.
+
+#### Retain independent agent-type status
+
+- One agent type's event shall not erase another agent type's latest status.
+- While the product displays one pet, it shall continue to show only the
+  current/default agent type's retained status.
+- The retained statuses shall provide the behavioral foundation for later
+  per-agent-type pet display.
+
+#### Preserve safe unknown-event behavior
+
+- A supported lifecycle event shall be translated into its corresponding
+  display state and saved with owner-only permissions.
+- An unsupported hook event shall make no state change and return without
+  disrupting the coding agent.
+
+### Milestone 2: Safe pet and hook management
+
+This milestone aligns customization and integration workflows with the agreed
+safety and usability rules.
+
+#### Align pet discovery containment
+
+- Manually installed and symbolically linked pets shall receive the same
+  spritesheet containment protection as downloaded pets.
+- Discovery and final selection shall use the same eligibility rule.
+- A pet whose spritesheet escapes its pet folder, including through a symbolic
+  link, shall not appear selectable.
+- Rejection shall not read, convert, or cache the outside file.
+
+#### Align GitHub package safeguards
+
+- GitHub content shall correspond to the repository selected by the user.
+- Empty or oversized GitHub manifests and spritesheets shall be rejected under
+  explicit package limits consistent with other providers.
+- An incomplete GitHub retrieval shall not create an installed pet.
+- Documentation shall describe equivalent safety outcomes without requiring
+  every provider to use identical redirect handling.
+
+#### Resolve installed-pet identifier collisions
 
 - Installation shall never overwrite an existing pet.
 - When a normalized identifier is already used, the new installation shall
@@ -452,7 +515,7 @@ criteria have been verified.
 - This rule shall apply to every collision, including collision with the
   bundled Glitchcat identifier.
 
-### Protect existing agent integrations during setup
+#### Protect existing agent integrations during setup
 
 - An existing integration recognized as OmaPets-managed may be updated after a
   backup is created.
@@ -461,7 +524,7 @@ criteria have been verified.
 - Shared agent configuration shall preserve all unrelated entries.
 - Removal shall retain the same ownership safeguards.
 
-### Use recognizable agent names during hook setup
+#### Use recognizable agent names during hook setup
 
 - The interactive selector shall show human-readable agent names.
 - Short identifiers may also be shown where they help recognition, such as
@@ -469,25 +532,7 @@ criteria have been verified.
 - The selected name shall unambiguously identify the integration that will be
   configured.
 
-### Maintain the agent-hook tests
-
-- The permissions test shall send a supported lifecycle event and verify both
-  its normalized state and owner-only file permissions.
-- The interactive hook-installer scenario shall be verified in the normal
-  project test environment.
-- A workspace-specific process restriction shall not be treated as a product
-  defect without reproduction in a supported environment.
-
-### Separate hook reporting from automatic inference
-
-- Disabling automatic detection shall stop heuristic status guesses.
-- Installed hook updates shall continue reaching the widget while automatic
-  detection is disabled.
-- The configurable recent-activity window shall apply only to heuristic
-  inference.
-- A recent explicit hook event shall take precedence over an inferred state.
-
-### Restrict selectable pet locations
+#### Restrict selectable pet locations
 
 - User-selected pets shall be entries in the OmaPets pets directory.
 - An entry in that directory may be a symbolic link to a pet managed elsewhere,
@@ -496,53 +541,81 @@ criteria have been verified.
   selections.
 - Bundled Glitchcat shall remain the built-in exception.
 
-### Retain independent agent status
+### Milestone 3: Multi-pet experience
 
-- One agent's event shall not erase another agent's latest status.
-- While the product displays one pet, it shall continue to show only the
-  current/default agent's retained status.
-- The retained statuses shall provide the behavioral foundation for later
-  per-agent pet display.
+The first multi-pet implementation shall represent agent types independently.
+Codex, Claude Code, and Agy receive priority based on the owner's use. Local
+models and other agent types may be added later without being treated as
+currently supported.
 
-### Preserve safe unknown-event behavior
+#### Assignment and identity
 
-- A supported lifecycle event shall be translated into its corresponding
-  display state and saved with owner-only permissions.
-- An unsupported hook event shall make no state change and return without
-  disrupting the coding agent.
+- The user shall be able to assign a pet to each supported agent type.
+- An unassigned agent type shall use Glitchcat by default.
+- The same pet may be assigned to multiple agent types.
+- A duplicate assignment shall be allowed, but the assignment experience shall
+  warn that identical pets may be harder to distinguish.
+- Hovering a pet shall identify its agent type.
+- All sessions belonging to one agent type shall share one pet in this
+  milestone.
 
-## Future state
+#### Visibility and ordering
 
-### Next goal: per-agent pets
+- An agent type's pet shall appear when its first session opens, including
+  before that session receives a goal.
+- A newly appearing agent-type pet shall be added at the right of the existing
+  pets.
+- Existing pets shall retain their relative order while their sessions remain
+  open and shall not move merely because their statuses change.
+- When an agent type's final session closes, its pet shall disappear and the
+  remaining pets may shift only to fill the vacated space.
+- If that closing pet is in Error, Blocked, or May need attention, its attention
+  view shall remain until dismissed or until the normal three-second
+  active-user period ends. The pet shall then disappear.
 
-The next product goal, after the current repository and its documentation meet
-the owner's standards, is to represent agents independently.
+#### Shared status for multiple sessions
 
-The intended outcomes are:
+- Multi-pet version one shall not require distinct identity for multiple
+  sessions of the same agent type.
+- When sessions cannot be distinguished reliably, the latest event received
+  shall control the shared agent-type pet.
+- If reliable session identity is available, the shared pet shall show the
+  highest-priority state among its open sessions in this order: Error, Blocked,
+  May need attention, Working, Finished, then Inactive.
+- Closing or changing a distinguishable session shall recalculate the shared
+  pet from the remaining sessions.
 
-- The user can assign a different pet to each coding agent.
-- An assigned pet appears only while its agent is running.
-- Multiple pets can appear when multiple assigned agents are running.
-- Each visible pet independently represents the state of its assigned agent.
-- Codex, Claude Code, and Agy receive priority based on the owner's use.
-- The model permits later inclusion of local-model agents and other coding
-  agents without treating unspecified integrations as currently supported.
+#### Multiple attention states
 
-The future status model shall distinguish at least:
+- Only one pet shall be magnified at a time.
+- Other pets requiring attention shall retain their warning indicators while
+  they are not magnified.
+- Dismissing the current magnified view shall allow the next unresolved pet to
+  be presented.
+- While the user is idle and exactly one pet requires attention, that pet shall
+  remain magnified continuously.
+- While the user is idle and multiple pets require attention, OmaPets shall
+  rotate the magnified view among them every three seconds.
+- Idle rotation shall not dismiss or resolve any pet's attention state.
 
-- An agent that is running but inactive.
-- An agent that has completed its work.
-- An agent that is blocked pending user interaction.
-- An agent that has failed.
+## Later goals
 
-Only a state that genuinely requires user interaction shall trigger the
-waiting-related magnified attention view. Error shall remain attention-worthy,
-while successful completion shall remain non-magnified.
+### Separate sessions of the same agent type
 
-Detailed interaction design and acceptance criteria for this goal remain open
-until the questions below are resolved.
+OmaPets should investigate whether each supported agent exposes a stable way
+to distinguish simultaneous sessions. Where reliable identity is possible, a
+later release may allow separate pets for multiple sessions of the same agent
+type. This is not required for multi-pet version one.
 
-### Later goal: attention reason
+### Persona role integration
+
+A later integration with the Persona project may assign pets to stable Persona
+roles such as `ba`, `coder`, and `reviewer`, independent of the provider or
+model used by each role. This requires Persona to make active role identity
+available without making Persona responsible for OmaPets behavior. It is not
+part of multi-pet version one.
+
+### Attention reason
 
 A later goal is to let the user inspect why an agent requires attention, such
 as the relevant permission request. This information must be associated with
@@ -585,15 +658,16 @@ implementation-ready:
 
 - What product or agent does “Agy” refer to, and what user-observable states
   can it report?
-- What does it mean for each supported agent to be “running” or “on”?
 - How does the user assign, review, change, or remove an agent's pet?
-- In what order should multiple agent pets appear?
-- What should happen when several agents require attention simultaneously?
-- Should agents without an explicit pet assignment use a default pet, remain
-  hidden, or prompt the user to choose?
-- How long should completed, inactive, and failed agents remain visible?
+- How can OmaPets reliably recognize session opening and closing for each
+  supported agent type?
+- Which supported agents expose stable identities for simultaneous sessions?
+- How should a shared agent-type pet behave when an older high-priority event
+  has no reliable session identity or closing event?
 - Which reason details are useful when an agent needs attention, and which
   information must be withheld for privacy?
+- What product contract will eventually let Persona expose an active role to
+  OmaPets without making Persona responsible for pet behavior?
 - What non-animation and non-color cues are required for accessible status and
   attention reporting?
 - Why is the interactive hook-installer test unable to spawn its test process
