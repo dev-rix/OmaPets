@@ -34,6 +34,12 @@ The fork currently adds:
 - Installation of pets from authenticated private GitHub repositories.
 - Support for GitHub pet collections: a root `pet.json` is one pet; otherwise,
   immediate subfolders containing `pet.json` are installed as separate pets.
+- Codex activity state is written with owner-only permissions (`0600`) because it
+  can contain recent agent activity metadata.
+- Codex hooks are limited to session start/end, prompt submission, tool start,
+  permission requests, tool failures, and stop/success events. The high-frequency
+  `PostToolUse` hook is intentionally omitted to reduce overhead while retaining
+  working, waiting, error, and completion status updates.
 
 ## Bundled pet
 
