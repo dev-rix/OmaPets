@@ -76,6 +76,9 @@ test("installs and uninstalls every managed agent integration", async () => {
   const installed = spawnSync(installer, ["all"], { env, encoding: "utf8" })
   assert.equal(installed.status, 0, installed.stderr)
   assert.match(await readFile(join(paths.codex, "config.toml"), "utf8"), /BEGIN OMAPETS MANAGED HOOKS/)
+  const codexConfig = await readFile(join(paths.codex, "config.toml"), "utf8")
+  assert.match(codexConfig, /\[\[hooks\.PreToolUse\]\]/)
+  assert.doesNotMatch(codexConfig, /\[\[hooks\.PostToolUse\]\]/)
   assert.equal(await exists(join(paths.config, "opencode/plugins/omapets.js")), true)
   assert.equal(await exists(join(paths.pi, "extensions/omapets.ts")), true)
 
@@ -94,6 +97,20 @@ test("installs and uninstalls every managed agent integration", async () => {
   assert.equal(await exists(join(paths.config, "opencode/plugins/omapets.js")), false)
   assert.equal(await exists(join(paths.pi, "extensions/omapets.ts")), false)
   assert.equal(await exists(join(paths.omp, "extensions/omapets.ts")), false)
+})
+
+test("writes activity state with owner-only permissions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const stateHome = join(root, "state")
+  const result = spawnSync(hook, ["working", "codex"], {
+    env: { ...process.env, HOME: root, XDG_STATE_HOME: stateHome },
+    input: "{}\n",
+    encoding: "utf8",
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  const state = join(stateHome, "omarchy/omapets/status.json")
+  assert.equal((await lstat(state)).mode & 0o777, 0o600)
 })
 
 test("refuses to remove a generated integration without an ownership signature", async () => {

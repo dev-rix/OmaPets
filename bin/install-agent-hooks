@@ -203,7 +203,6 @@ install_codex() {
 SessionStart session-start
 UserPromptSubmit prompt
 PreToolUse tool-start
-PostToolUse tool-end
 PostToolUseFailure error
 PermissionRequest permission
 Stop stop

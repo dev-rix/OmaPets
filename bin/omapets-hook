@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 event="${1:-}"
 agent="${2:-codex}"
@@ -45,6 +46,7 @@ jq -n \
     updatedAtEpoch: $updatedAtEpoch
   }' >"$tmp_file"
 mv -f "$tmp_file" "$state_file"
+chmod 600 "$state_file"
 trap - EXIT
 
 # Hook protocols that parse stdout accept an empty JSON response as no-op.
