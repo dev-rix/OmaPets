@@ -41,6 +41,13 @@ The fork currently adds:
   `PostToolUse` hook is intentionally omitted to reduce overhead while retaining
   working, waiting, error, and completion status updates.
 
+## Product requirements and roadmap
+
+The authoritative current behavior, known limitations, implementation
+milestones, and future product direction are maintained in
+[`docs/requirements.md`](docs/requirements.md). Planned requirements in that
+document are explicitly separated from functionality available today.
+
 ## Bundled pet
 
 OmaPets includes [Glitchcat from Petdex](https://petdex.dev/pets/glitchcat)
