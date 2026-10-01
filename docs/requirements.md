@@ -162,7 +162,11 @@ user-owned file.
 
 OmaPets also accepts external status commands for inactive, working, blocked,
 attention, finished, and error (with `idle`, `waiting`, and `success` kept as
-aliases), along with commands to refresh the selected pet or the pet list. This is a supported integration option for custom agents and scripts.
+aliases), along with commands to refresh the selected pet or the pet list.
+These status commands are testing aids rather than an agent integration: the
+next periodic status check, within about two seconds, replaces a command's
+state once any hold time ends. Custom agents should report through
+`omapets-hook` lifecycle events instead.
 Unknown hook lifecycle events shall make no state change and shall return
 without disrupting the coding agent.
 
@@ -292,9 +296,9 @@ rather than core product workflows:
 - Middle-clicking the pet requests a two-and-a-half-second Finished override.
 
 These controls allow visual states to be checked without requiring a real
-agent lifecycle event. Currently, expiration only allows automatic detection
-to replace the preview; it does not itself restore a state. A preview can
-therefore remain indefinitely when automatic detection is disabled.
+agent lifecycle event. When a preview ends, the next periodic status check
+restores the current agent state, whether or not automatic detection is
+enabled. Restoring the exact state shown before the preview is not required.
 
 ## Business rules and safety constraints
 
@@ -401,8 +405,6 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
   until the four-hour expiry.
 - Reason-level status detail is not consistently carried from agent hooks to
   the visible tooltip.
-- Diagnostic previews do not restore themselves when automatic detection is
-  disabled.
 - Pet discovery does not yet apply the same spritesheet containment rule as
   installation and final pet loading.
 - Hook installation can replace an unrecognized same-name integration after
@@ -436,16 +438,6 @@ the status foundation needed by multi-pet behavior.
   user to correct or change it.
 - If a missing helper capability caused the failure, the user shall receive a
   clear explanation of what capability is unavailable.
-
-#### Make diagnostic previews reliably temporary
-
-- A right-click state preview shall last five seconds.
-- A middle-click Finished preview shall last two-and-a-half seconds.
-- When a preview ends, OmaPets shall restore the current detected state.
-- If automatic detection is disabled, OmaPets shall restore the state shown
-  before the preview.
-- Real agent events received during a preview shall be eligible for display
-  when the preview ends.
 
 #### Maintain the agent-hook tests
 
