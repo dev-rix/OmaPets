@@ -389,12 +389,6 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
   pet using the bundled `glitchcat` identifier is silently hidden by the picker.
 - Agy is confirmed as the `agy` provider used by Persona, but Agy and
   local-model agents do not yet have defined OmaPets status integrations.
-- The automated hook-permissions test uses the unsupported input `working`
-  instead of a lifecycle event. A valid `tool-start` event has been verified to
-  create a working-state file with owner-only `0600` permissions.
-- The interactive hook-installer test is prevented from spawning its test
-  process in the reviewed workspace environment with `EPERM`. This is an
-  environment/test-harness investigation, not a confirmed product defect.
 - Accessibility expectations beyond hover text and differentiated animation,
   shape, and color have not yet been defined.
 
@@ -682,6 +676,3 @@ implementation-ready:
   OmaPets without making Persona responsible for pet behavior?
 - What non-animation and non-color cues are required for accessible status and
   attention reporting?
-- Why is the interactive hook-installer test unable to spawn its test process
-  in the reviewed workspace, and does the same restriction occur in the normal
-  project test environment?
