@@ -116,7 +116,7 @@ assert.match(
 
 assert.match(
   qml,
-  /GridView\s*\{[\s\S]*?anchors\.top:\s*petPickerHeader\.bottom[\s\S]*?anchors\.bottom:\s*petActionRow\.top[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
+  /GridView\s*\{[\s\S]*?anchors\.top:\s*(?:petPickerHeader|petLoadErrorBanner)\.bottom[\s\S]*?anchors\.bottom:\s*petActionRow\.top[\s\S]*?ScrollBar\.vertical:\s*ScrollBar/,
   "the pet grid must fill the scrollable viewport above the action toolbar",
 )
 

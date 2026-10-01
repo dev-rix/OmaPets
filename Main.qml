@@ -73,9 +73,15 @@ BarWidget {
     ? bundledPetPath : resolvePetPath(configuredPetPath)
   readonly property url petManifestUrl: resolvedPetPath === "" ? ""
     : "file://" + resolvedPetPath.replace(/\/$/, "") + "/pet.json"
+  readonly property url fallbackSheetUrl:
+    Qt.resolvedUrl("assets/pets/glitchcat/preview.png")
   property string petName: "No pet installed"
+  // Why the selected pet could not load; empty while it loads normally.
+  property string petLoadError: ""
+  readonly property bool petFallbackActive: petLoadError !== ""
   property url spritesheetUrl: ""
   property string pendingSheetUrl: ""
+  property string convertingSheetUrl: ""
   property bool attentionDismissed: false
   readonly property bool tooltipHovered: hover.hovered
   readonly property var idleService: bar && bar.shell
@@ -86,6 +92,7 @@ BarWidget {
     (detectedAgent === "" ? "" : agentLabel(detectedAgent) + " · ")
     + (stateLabels[activityState] || activityState)
     + (activityDetail === "" ? "" : "\n" + activityDetail)
+    + (petFallbackActive ? "\nSelected pet unavailable; showing Glitchcat" : "")
   readonly property bool attentionOpen:
     (activityState === "waiting" || activityState === "error")
     && !attentionDismissed
@@ -202,14 +209,33 @@ BarWidget {
     if (/\.webp$/i.test(value)) {
       pendingSheetUrl = value
       if (!sheetConverter.running) {
-        sheetConverter.command = ["sh", "-c",
-          "mkdir -p \"$1\" && magick \"$2\" \"$3\"",
-          "omarpets-convert", root.cacheHome + "/omarpets", filePath(value), root.convertedSheetPath]
+        convertingSheetUrl = value
+        sheetConverter.command = [filePath(Qt.resolvedUrl("bin/convert-spritesheet")),
+          filePath(value), root.convertedSheetPath]
         sheetConverter.running = true
       }
     } else {
       spritesheetUrl = value
     }
+  }
+
+  // Shows bundled Glitchcat from its ready-made PNG atlas, which needs no
+  // conversion helper, so agent status stays visible when a pet cannot load.
+  function usePetFallback(reason) {
+    console.warn("omarpets: showing Glitchcat because the selected pet could not load:", reason)
+    petLoadError = configuredPetPath === "" ? "" : String(reason)
+    petName = "Glitchcat"
+    atlasRows = 9
+    spritesheetUrl = fallbackSheetUrl
+    petAvailable = true
+    imageRevision++
+  }
+
+  function conversionFailureReason(exitCode) {
+    if (exitCode === 127)
+      return "ImageMagick (magick) is not installed, so its WebP spritesheet cannot be converted."
+    if (exitCode === 66) return "Its spritesheet file is missing."
+    return "Its WebP spritesheet could not be converted."
   }
 
   function normalizedState(value) {
@@ -321,10 +347,7 @@ BarWidget {
       printErrors: false
       onFileChanged: reload()
       onLoadFailed: {
-        root.petAvailable = false
-        root.petName = "No pet installed"
-        root.atlasRows = 9
-        root.spritesheetUrl = ""
+        root.usePetFallback("Its pet.json could not be found or read.")
         if (root.petManifestUrl !== "" && root.manifestRetryCount < 3) {
           root.manifestRetryCount++
           manifestRetryTimer.restart()
@@ -336,6 +359,7 @@ BarWidget {
           var sheet = String(pet.spritesheetPath || "spritesheet.webp")
           if (sheet.indexOf("..") >= 0 || sheet.indexOf("/") === 0)
             throw new Error("spritesheetPath must stay inside the pet folder")
+          root.petLoadError = ""
           root.petName = String(pet.displayName || pet.id || "Pet")
           root.atlasRows = Number(pet.spriteVersionNumber || 1) >= 2 ? 11 : 9
           var manifestUrl = String(root.petManifestUrl)
@@ -345,10 +369,8 @@ BarWidget {
           root.manifestRetryCount = 0
           root.imageRevision++
         } catch (error) {
-          root.petAvailable = false
-          root.atlasRows = 9
-          root.spritesheetUrl = ""
           console.warn("omarpets: invalid pet manifest", error)
+          root.usePetFallback("Its pet.json is invalid: " + error.message)
         }
       }
     }
@@ -366,6 +388,11 @@ BarWidget {
     id: sheetConverter
     running: false
     onExited: function(exitCode) {
+      // Another pet was selected mid-conversion; convert that one instead.
+      if (root.pendingSheetUrl !== root.convertingSheetUrl) {
+        root.loadSpritesheet(root.pendingSheetUrl)
+        return
+      }
       if (exitCode === 0) {
         root.spritesheetUrl = ""
         Qt.callLater(function() {
@@ -374,6 +401,7 @@ BarWidget {
         })
       } else {
         console.warn("omarpets: could not convert WebP spritesheet", root.pendingSheetUrl)
+        root.usePetFallback(root.conversionFailureReason(exitCode))
       }
     }
   }
@@ -485,6 +513,10 @@ BarWidget {
       mipmap: false
       asynchronous: true
       visible: root.petAvailable && !root.attentionOpen
+      onStatusChanged: {
+        if (status === Image.Error && String(source) !== String(root.fallbackSheetUrl))
+          root.usePetFallback("Its spritesheet could not be read.")
+      }
     }
 
     Text {
@@ -627,11 +659,29 @@ BarWidget {
         }
       }
 
+      Text {
+        id: petLoadErrorBanner
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: petPickerHeader.bottom
+        anchors.topMargin: visible ? Style.spacing.md : 0
+        height: visible ? implicitHeight : 0
+        visible: root.petFallbackActive
+        text: "Selected pet \"" + root.configuredPetPath + "\" is unavailable. "
+          + root.petLoadError + " Showing Glitchcat until you choose another pet."
+        textFormat: Text.PlainText
+        color: "#facc15"
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+      }
+
       GridView {
         id: petGrid
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: petPickerHeader.bottom
+        anchors.top: petLoadErrorBanner.bottom
         anchors.topMargin: Style.spacing.md
         anchors.bottom: petActionRow.top
         anchors.bottomMargin: Style.spacing.md
@@ -650,7 +700,11 @@ BarWidget {
           required property var modelData
           width: GridView.view.cellWidth - Style.spacing.sm
           height: GridView.view.cellHeight - Style.spacing.sm
+          readonly property bool unavailable: root.petFallbackActive
+            && String(root.configuredPetPath) === String(petTile.modelData.petPath)
           selected: String(root.configuredPetPath) === String(petTile.modelData.petPath)
+            && !petTile.unavailable
+          opacity: petTile.unavailable ? 0.5 : 1
           bordered: true
           focusable: true
           onClicked: root.selectPet(petTile.modelData.petPath)
@@ -686,6 +740,7 @@ BarWidget {
               + (petTile.modelData.id !== ""
                   && String(petTile.modelData.name).toLowerCase() !== String(petTile.modelData.id).toLowerCase()
                 ? " (" + petTile.modelData.id + ")" : "")
+              + (petTile.unavailable ? " · unavailable" : "")
             textFormat: Text.PlainText
             color: root.bar.foreground
             font.family: root.bar.fontFamily
