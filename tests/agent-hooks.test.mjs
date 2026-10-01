@@ -24,8 +24,8 @@ test("uses the OmaPets state directory consistently", async () => {
     readFile(detector, "utf8"),
   ])
 
-  assert.match(hookSource, /omarchy\/omapets\/status\.json|state_dir="\$state_home\/omarchy\/omapets"/)
-  assert.match(detectorSource, /omarchy\/omapets\/status\.json/)
+  assert.match(hookSource, /state_dir="\$state_home\/omarchy\/omapets\/agents"/)
+  assert.match(detectorSource, /omarchy\/omapets\/agents\/\$agent\.json/)
   assert.doesNotMatch(`${hookSource}\n${detectorSource}`, /omarchy\/omarpets/)
 })
 
@@ -109,7 +109,7 @@ test("writes activity state with owner-only permissions", async () => {
   })
 
   assert.equal(result.status, 0, result.stderr)
-  const state = join(stateHome, "omarchy/omapets/status.json")
+  const state = join(stateHome, "omarchy/omapets/agents/codex.json")
   assert.equal((await lstat(state)).mode & 0o777, 0o600)
   const saved = JSON.parse(await readFile(state, "utf8"))
   assert.equal(saved.agent, "codex")
@@ -127,7 +127,7 @@ test("ignores unsupported hook events without writing state", async () => {
   })
 
   assert.equal(result.status, 0, result.stderr)
-  assert.equal(await exists(join(stateHome, "omarchy/omapets/status.json")), false)
+  assert.equal(await exists(join(stateHome, "omarchy/omapets/agents")), false)
 })
 
 test("refuses to remove a generated integration without an ownership signature", async () => {
@@ -254,4 +254,63 @@ test("interactive installer applies the agents selected in the floating terminal
   assert.match(result.stdout, /Press any key to close…/)
   assert.match(await readFile(join(codexHome, "config.toml"), "utf8"), /BEGIN OMAPETS MANAGED HOOKS/)
   assert.equal(JSON.parse(await readFile(join(claudeHome, "settings.json"), "utf8")).hooks !== undefined, true)
+})
+
+async function statusEnv(defaultAgent) {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-status-test-"))
+  const fakeBin = join(root, "bin")
+  await mkdir(fakeBin, { recursive: true })
+  await writeFile(join(fakeBin, "omarchy-default-agent"), `#!/usr/bin/env bash\nprintf '${defaultAgent}\\n'\n`)
+  await chmod(join(fakeBin, "omarchy-default-agent"), 0o755)
+  const env = {
+    ...process.env,
+    HOME: root,
+    XDG_STATE_HOME: join(root, "state"),
+    CODEX_HOME: join(root, "codex"),
+    CLAUDE_CONFIG_DIR: join(root, "claude"),
+    PATH: `${fakeBin}:${process.env.PATH}`,
+  }
+  const sendHook = (event, agent) => {
+    const result = spawnSync(hook, [event, agent], { env, input: "{}\n", encoding: "utf8" })
+    assert.equal(result.status, 0, result.stderr)
+  }
+  const detect = (...mode) => {
+    const result = spawnSync(detector, ["8", root, ...mode], { env, encoding: "utf8" })
+    assert.equal(result.status, 0, result.stderr)
+    return result.stdout
+  }
+  return { root, env, sendHook, detect }
+}
+
+test("keeps each agent type's latest hook status independently", async () => {
+  const { env, sendHook, detect } = await statusEnv("codex")
+  sendHook("permission", "codex")
+  sendHook("tool-start", "claude")
+
+  const agents = join(env.XDG_STATE_HOME, "omarchy/omapets/agents")
+  assert.equal(JSON.parse(await readFile(join(agents, "codex.json"), "utf8")).state, "waiting")
+  assert.equal(JSON.parse(await readFile(join(agents, "claude.json"), "utf8")).state, "working")
+  assert.equal(detect(), "codex:waiting")
+})
+
+test("ignores hook calls whose agent name is not a safe identifier", async () => {
+  const { env, sendHook } = await statusEnv("codex")
+  sendHook("tool-start", "../escape")
+
+  assert.equal(await exists(join(env.XDG_STATE_HOME, "omarchy/omapets/agents")), false)
+  assert.equal(await exists(join(env.XDG_STATE_HOME, "omarchy/escape.json")), false)
+})
+
+test("reports hook status but no heuristic guesses when automatic detection is off", async () => {
+  const { env, sendHook, detect } = await statusEnv("claude")
+  const sessions = join(env.CLAUDE_CONFIG_DIR, "projects")
+  await mkdir(sessions, { recursive: true })
+  await writeFile(join(sessions, "recent.jsonl"), "{}\n")
+
+  assert.equal(detect("auto"), "claude:working")
+  assert.equal(detect("hooks"), "claude:idle")
+
+  sendHook("permission", "claude")
+  assert.equal(detect("hooks"), "claude:waiting")
+  assert.equal(detect("auto"), "claude:waiting")
 })
