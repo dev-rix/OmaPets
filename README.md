@@ -25,8 +25,11 @@ omarchy plugin add https://github.com/dev-rix/OmaPets.git --enable --yes
 
 The fork currently adds:
 
-- A magnified status window for waiting and error states, with yellow warning
-  and red stop indicators in the top bar.
+- Six status meanings: inactive, working, blocked (needs your input), may need
+  attention, finished, and error.
+- A magnified status window for blocked, may-need-attention, and error states,
+  with yellow warning and red stop indicators in the top bar. A finished turn
+  only magnifies, with a green check, when it happens while you are away.
 - Automatic dismissal of the magnified window after three seconds while the
   computer is active, while allowing it to remain visible during idle time.
 - Discovery of pets installed through symlinks, including GNU Stow-managed
@@ -39,7 +42,7 @@ The fork currently adds:
 - Codex hooks are limited to session start/end, prompt submission, tool start,
   permission requests, tool failures, and stop/success events. The high-frequency
   `PostToolUse` hook is intentionally omitted to reduce overhead while retaining
-  working, waiting, error, and completion status updates.
+  working, blocked, error, and finished status updates.
 
 ## Product requirements and roadmap
 
@@ -77,4 +80,4 @@ agents, then press Enter. Restart any open agent sessions after installation.
 Left-click the pet to list installed pets and switch between them. The choice is
 saved in the bar configuration. Select **Open folder** to browse the installed
 pet files. Right-click cycles through pet statuses, and middle-click previews
-success. Hover for the current state and detail.
+finished. Hover for the current state and detail.

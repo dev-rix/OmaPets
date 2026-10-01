@@ -8,7 +8,7 @@ mode="${3:-auto}"
 
 agent=$(omarchy-default-agent 2>/dev/null || true)
 if [[ ! $agent =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
-  printf ':idle'
+  printf ':inactive'
   exit 0
 fi
 
@@ -18,8 +18,9 @@ if [[ -f "$status_file" ]]; then
   hook_state=$(jq -r '.state // empty' "$status_file" 2>/dev/null || true)
   hook_time=$(jq -r '(.updatedAtEpoch | tonumber?) // 0' "$status_file" 2>/dev/null || printf 0)
   age=$(($(date +%s) - hook_time))
+  # A saved hook state stands until the agent's next hook event replaces it,
+  # so a finished turn is not later guessed to be waiting on the user.
   max_age=14400
-  [[ "$hook_state" == success ]] && max_age=8
   if [[ -n "$hook_state" && $age -ge 0 && $age -le $max_age ]]; then
     printf '%s:%s' "$agent" "$hook_state"
     exit 0
@@ -27,7 +28,7 @@ if [[ -f "$status_file" ]]; then
 fi
 
 if [[ "$mode" == hooks ]]; then
-  printf '%s:idle' "$agent"
+  printf '%s:inactive' "$agent"
   exit 0
 fi
 
@@ -47,7 +48,8 @@ printf '%s:' "$agent"
 if [[ $recent -eq 1 ]]; then
   printf working
 elif pgrep -f "(^|/)$agent( |$)" >/dev/null 2>&1; then
-  printf waiting
+  # Without hooks, a quiet open agent may be done or may be waiting on the user.
+  printf attention
 else
-  printf idle
+  printf inactive
 fi

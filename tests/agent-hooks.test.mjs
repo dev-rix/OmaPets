@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { access, chmod, lstat, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { spawnSync } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import test from "node:test"
 
 const installer = resolve("bin/install-agent-hooks")
@@ -288,9 +288,9 @@ test("keeps each agent type's latest hook status independently", async () => {
   sendHook("tool-start", "claude")
 
   const agents = join(env.XDG_STATE_HOME, "omarchy/omapets/agents")
-  assert.equal(JSON.parse(await readFile(join(agents, "codex.json"), "utf8")).state, "waiting")
+  assert.equal(JSON.parse(await readFile(join(agents, "codex.json"), "utf8")).state, "blocked")
   assert.equal(JSON.parse(await readFile(join(agents, "claude.json"), "utf8")).state, "working")
-  assert.equal(detect(), "codex:waiting")
+  assert.equal(detect(), "codex:blocked")
 })
 
 test("ignores hook calls whose agent name is not a safe identifier", async () => {
@@ -308,9 +308,72 @@ test("reports hook status but no heuristic guesses when automatic detection is o
   await writeFile(join(sessions, "recent.jsonl"), "{}\n")
 
   assert.equal(detect("auto"), "claude:working")
-  assert.equal(detect("hooks"), "claude:idle")
+  assert.equal(detect("hooks"), "claude:inactive")
 
   sendHook("permission", "claude")
-  assert.equal(detect("hooks"), "claude:waiting")
-  assert.equal(detect("auto"), "claude:waiting")
+  assert.equal(detect("hooks"), "claude:blocked")
+  assert.equal(detect("auto"), "claude:blocked")
+})
+
+test("translates each lifecycle event into its status meaning", async () => {
+  const { env, sendHook } = await statusEnv("codex")
+  const expected = {
+    "session-start": "inactive",
+    prompt: "working",
+    "tool-start": "working",
+    "tool-end": "working",
+    permission: "blocked",
+    stop: "finished",
+    error: "error",
+    "session-end": "inactive",
+  }
+  const file = join(env.XDG_STATE_HOME, "omarchy/omapets/agents/codex.json")
+  for (const [event, state] of Object.entries(expected)) {
+    sendHook(event, "codex")
+    assert.equal(JSON.parse(await readFile(file, "utf8")).state, state, event)
+  }
+})
+
+test("a finished turn stays finished instead of being guessed as waiting", async () => {
+  const { root, env, detect } = await statusEnv("codex")
+  const agents = join(env.XDG_STATE_HOME, "omarchy/omapets/agents")
+  await mkdir(agents, { recursive: true })
+  const minuteAgo = Math.floor(Date.now() / 1000) - 60
+  const save = state => writeFile(join(agents, "codex.json"), JSON.stringify({ state, updatedAtEpoch: minuteAgo }))
+
+  // An open, quiet Codex process is what the heuristic used to call waiting.
+  const fakeCodex = join(root, "bin", "codex")
+  await writeFile(fakeCodex, "#!/usr/bin/env bash\nsleep 30\n")
+  await chmod(fakeCodex, 0o755)
+  const codex = spawn(fakeCodex, [], { stdio: "ignore" })
+  try {
+    await new Promise(done => setTimeout(done, 200))
+    await save("finished")
+    assert.equal(detect("auto"), "codex:finished")
+    // Files saved before the rename still hold; the widget reads success as finished.
+    await save("success")
+    assert.equal(detect("auto"), "codex:success")
+  } finally {
+    const exited = new Promise(done => codex.once("exit", done))
+    codex.kill()
+    await exited
+  }
+})
+
+test("without hooks, a quiet open agent may need attention", async () => {
+  const { root, detect } = await statusEnv("codex")
+  const fakeCodex = join(root, "bin", "codex")
+  await writeFile(fakeCodex, "#!/usr/bin/env bash\nsleep 30\n")
+  await chmod(fakeCodex, 0o755)
+  const codex = spawn(fakeCodex, [], { stdio: "ignore" })
+  try {
+    await new Promise(done => setTimeout(done, 200))
+    assert.equal(detect("auto"), "codex:attention")
+    assert.equal(detect("hooks"), "codex:inactive")
+  } finally {
+    const exited = new Promise(done => codex.once("exit", done))
+    codex.kill()
+    await exited
+  }
+  assert.equal(detect("auto"), "codex:inactive")
 })
