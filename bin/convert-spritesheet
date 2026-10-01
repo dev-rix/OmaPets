@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Converts a WebP spritesheet into a PNG that Qt can display.
+# Exit codes tell the bar which fallback message to show:
+#   66  the spritesheet file does not exist
+#   127 ImageMagick (magick) is not installed
+#   other non-zero: ImageMagick could not convert the file
+
+source_sheet="${1:?source spritesheet is required}"
+converted_sheet="${2:?converted spritesheet path is required}"
+
+if [[ ! -f "$source_sheet" ]]; then
+  printf 'omapets: spritesheet not found: %s\n' "$source_sheet" >&2
+  exit 66
+fi
+
+if ! command -v magick >/dev/null 2>&1; then
+  printf 'omapets: ImageMagick (magick) is required to convert WebP spritesheets\n' >&2
+  exit 127
+fi
+
+mkdir -p -- "${converted_sheet%/*}"
+magick "$source_sheet" "$converted_sheet"

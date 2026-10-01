@@ -188,6 +188,15 @@ panel shall:
 - Provide actions to install a pet, open the pets folder, and configure agent
   hooks.
 
+If the selected pet cannot load because its folder or `pet.json` is missing or
+invalid, its spritesheet cannot be read, or its WebP spritesheet cannot be
+converted, the top bar shall show bundled Glitchcat so agent status remains
+visible. Glitchcat's fallback uses a bundled PNG atlas and does not depend on
+ImageMagick. While the fallback is active, the pet panel shall name the
+unavailable selection and the reason, including when ImageMagick is not
+installed, and shall not mark that pet as the working selection. The status
+tooltip shall note that Glitchcat is being shown in its place.
+
 Pet discovery shall honor the user's configured base configuration directory
 and use the standard user configuration directory when none is configured.
 Opening the pets folder shall create it first if it does not exist.
@@ -296,9 +305,8 @@ The following safeguards are part of expected product behavior:
 - Agent activity-state data shall be readable and writable only by its owner
   because it may contain recent agent metadata.
 - Failed installation shall be reported without representing the affected pet
-  as successfully installed. WebP conversion failures currently receive only
-  a console warning and can leave no visible pet; the required fallback is an
-  implementation task.
+  as successfully installed. A selected pet that fails to load or convert shall
+  be replaced by bundled Glitchcat rather than leaving no visible pet.
 
 ## Current user journeys and acceptance criteria
 
@@ -372,8 +380,6 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
   the visible tooltip.
 - Diagnostic previews do not restore themselves when automatic detection is
   disabled.
-- An invalid selected pet or a failed WebP conversion can leave the bar without
-  a visible pet instead of falling back to Glitchcat.
 - Pet discovery does not yet apply the same spritesheet containment rule as
   installation and final pet loading.
 - Hook installation can replace an unrecognized same-name integration after
