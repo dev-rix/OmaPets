@@ -128,7 +128,7 @@ assert.match(
 
 assert.match(
   qml,
-  /function\s+cycleActivityState\(\)\s*\{[\s\S]*?\["idle",\s*"working",\s*"waiting",\s*"success",\s*"error"\][\s\S]*?setActivity\(next,\s*"",\s*5000\)/,
+  /function\s+cycleActivityState\(\)\s*\{[\s\S]*?\["inactive",\s*"working",\s*"blocked",\s*"attention",\s*"finished",\s*"error"\][\s\S]*?setActivity\(next,\s*"",\s*5000\)/,
   "right-clicking the pet must cycle through every activity status",
 )
 

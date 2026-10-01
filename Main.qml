@@ -12,27 +12,36 @@ BarWidget {
   // Codex atlas rows: idle, right, left, wave, jump, failed, waiting,
   // running/active, review. V2 adds two rows but keeps these first nine.
   readonly property var stateRows: ({
-    "idle": 0,
+    "inactive": 0,
     "working": 7,
-    "waiting": 6,
-    "success": 8,
+    "blocked": 6,
+    "attention": 3,
+    "finished": 8,
     "error": 5
   })
   readonly property var stateLabels: ({
-    "idle": "Agent idle",
+    "inactive": "Agent inactive",
     "working": "Agent working",
-    "waiting": "Agent needs input",
-    "success": "Agent finished",
+    "blocked": "Agent needs your input",
+    "attention": "Agent may need attention",
+    "finished": "Agent finished",
     "error": "Agent failed"
   })
   // Codex pet packages do not declare per-row frame counts. Normal loops use
-  // six frames and failure uses all eight atlas columns.
+  // six frames, waving uses four, and failure uses all eight atlas columns.
   readonly property var stateFrames: ({
-    "idle": 6,
+    "inactive": 6,
     "working": 6,
-    "waiting": 6,
-    "success": 6,
+    "blocked": 6,
+    "attention": 4,
+    "finished": 6,
     "error": 8
+  })
+  // Earlier state names, still found in saved hook files and external commands.
+  readonly property var legacyStates: ({
+    "idle": "inactive",
+    "waiting": "blocked",
+    "success": "finished"
   })
   readonly property var runningAnimations: [
     { "row": 1, "frames": 8 },
@@ -40,14 +49,14 @@ BarWidget {
     { "row": 7, "frames": 6 }
   ]
 
-  property string activityState: "idle"
+  property string activityState: "inactive"
   property string activityDetail: ""
-  property string detectedState: "idle"
+  property string detectedState: "inactive"
   property string detectedAgent: ""
   property double overrideUntil: 0
   property int currentFrame: 0
-  property int animationRow: stateRows["idle"]
-  property int animationFrameCount: stateFrames["idle"]
+  property int animationRow: stateRows["inactive"]
+  property int animationFrameCount: stateFrames["inactive"]
   property int imageRevision: 0
   property bool petPickerOpen: false
   property bool petAvailable: false
@@ -83,6 +92,8 @@ BarWidget {
   property string pendingSheetUrl: ""
   property string convertingSheetUrl: ""
   property bool attentionDismissed: false
+  // Finished only asks for attention when it happens while the user is away.
+  property bool finishedNoticePending: false
   readonly property bool tooltipHovered: hover.hovered
   readonly property var idleService: bar && bar.shell
     && typeof bar.shell.firstPartyServiceFor === "function"
@@ -94,7 +105,8 @@ BarWidget {
     + (activityDetail === "" ? "" : "\n" + activityDetail)
     + (petFallbackActive ? "\nSelected pet unavailable; showing Glitchcat" : "")
   readonly property bool attentionOpen:
-    (activityState === "waiting" || activityState === "error")
+    (activityState === "blocked" || activityState === "attention"
+      || activityState === "error" || finishedNoticePending)
     && !attentionDismissed
 
   function setting(key, fallback) {
@@ -240,7 +252,8 @@ BarWidget {
 
   function normalizedState(value) {
     var state = String(value || "").toLowerCase()
-    return stateRows[state] !== undefined ? state : "idle"
+    if (legacyStates[state] !== undefined) state = legacyStates[state]
+    return stateRows[state] !== undefined ? state : "inactive"
   }
 
   function selectAnimation(state) {
@@ -257,14 +270,24 @@ BarWidget {
   function setActivity(state, detail, holdMs) {
     activityState = normalizedState(state)
     attentionDismissed = false
+    finishedNoticePending = false
     selectAnimation(activityState)
     activityDetail = String(detail || "")
     overrideUntil = holdMs > 0 ? Date.now() + holdMs : 0
     currentFrame = 0
+    updateFinishedNotice()
+  }
+
+  // Raised when the agent finishes while the user is idle, or when the user goes
+  // idle on an unacknowledged finish. Once raised, it stays until dismissed, so
+  // it is still visible when the user returns and the three-second dismissal starts.
+  function updateFinishedNotice() {
+    if (activityState === "finished" && userIdle && !attentionDismissed)
+      finishedNoticePending = true
   }
 
   function cycleActivityState() {
-    var states = ["idle", "working", "waiting", "success", "error"]
+    var states = ["inactive", "working", "blocked", "attention", "finished", "error"]
     var current = states.indexOf(activityState)
     var next = states[(current + 1) % states.length]
     setActivity(next, "", 5000)
@@ -289,6 +312,7 @@ BarWidget {
   }
 
   onUserIdleChanged: {
+    updateFinishedNotice()
     if (!attentionOpen) return
     if (userIdle) attentionDismissTimer.stop()
     else attentionDismissTimer.restart()
@@ -430,11 +454,16 @@ BarWidget {
   IpcHandler {
     target: "omapets"
 
-    function idle(detail: string): void { root.setActivity("idle", detail, 0) }
+    function inactive(detail: string): void { root.setActivity("inactive", detail, 0) }
     function working(detail: string): void { root.setActivity("working", detail, 0) }
-    function waiting(detail: string): void { root.setActivity("waiting", detail, 0) }
-    function success(detail: string): void { root.setActivity("success", detail, 5000) }
+    function blocked(detail: string): void { root.setActivity("blocked", detail, 0) }
+    function attention(detail: string): void { root.setActivity("attention", detail, 0) }
+    function finished(detail: string): void { root.setActivity("finished", detail, 5000) }
     function error(detail: string): void { root.setActivity("error", detail, 8000) }
+    // Earlier command names.
+    function idle(detail: string): void { root.setActivity("inactive", detail, 0) }
+    function waiting(detail: string): void { root.setActivity("blocked", detail, 0) }
+    function success(detail: string): void { root.setActivity("finished", detail, 5000) }
     function refresh(): void { root.reloadPet() }
     function refreshPets(): void { root.refreshAvailablePets() }
   }
@@ -521,8 +550,9 @@ BarWidget {
 
     Text {
       anchors.centerIn: parent
-      text: root.activityState === "error" ? "🛑" : "⚠"
-      color: root.activityState === "error" ? "#ef4444" : "#facc15"
+      text: root.activityState === "error" ? "🛑" : root.activityState === "finished" ? "✔" : "⚠"
+      color: root.activityState === "error" ? "#ef4444"
+        : root.activityState === "finished" ? "#22c55e" : "#facc15"
       font.family: root.bar.fontFamily
       font.pixelSize: Style.font.body
       visible: root.attentionOpen
@@ -536,7 +566,7 @@ BarWidget {
         if (mouse.button === Qt.RightButton) {
           root.cycleActivityState()
         } else if (mouse.button === Qt.MiddleButton) {
-          root.setActivity("success", "Test success animation", 2500)
+          root.setActivity("finished", "Test finished animation", 2500)
         } else {
           if (root.petPickerOpen) root.close()
           else root.openPetPicker()

@@ -16,10 +16,10 @@ esac
 payload=$(cat)
 case "$event" in
   prompt|tool-start|tool-end) state="working" ;;
-  permission) state="waiting" ;;
-  stop) state="success" ;;
+  permission) state="blocked" ;;
+  stop) state="finished" ;;
   error) state="error" ;;
-  session-start|session-end) state="idle" ;;
+  session-start|session-end) state="inactive" ;;
 esac
 
 detail=$(printf '%s' "$payload" | jq -r '

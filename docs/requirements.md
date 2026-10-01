@@ -25,8 +25,8 @@ them where doing so does not compromise the primary user's goals.
 The primary outcome is a fast, glanceable understanding of a coding agent's
 status without requiring the user to switch to the agent's window.
 
-Waiting and error conditions require additional visual prominence because they
-may require the user to act. The enlarged pet view serves as an attention
+Blocked, may-need-attention, and error conditions require additional visual
+prominence because they may require the user to act. The enlarged pet view serves as an attention
 signal rather than a decorative effect.
 
 ## Users and stakeholders
@@ -59,13 +59,18 @@ OmaPets shall display one animated pet in the Omarchy top bar.
 
 The pet shall represent one of these activity states:
 
-| State | Meaning currently presented to the user | Visual treatment |
+| State | Meaning presented to the user | Visual treatment |
 | --- | --- | --- |
-| Idle | The selected agent is not currently detected as working or waiting | Idle animation |
-| Working | The selected agent is actively working | A randomly selected running, left-moving, or right-moving animation |
-| Waiting | The selected agent needs input, or fallback detection sees an open agent without recent activity | Waiting animation and attention treatment |
-| Success | The selected agent reported normal completion or stopped without reporting an error | Success animation without magnification |
-| Error | The selected agent has encountered a failure | Error animation and attention treatment |
+| Inactive | The agent session is open, or no agent is detected, and it is not progressing or known to need the user | Idle animation |
+| Working | The agent is actively progressing toward its goal | A randomly selected running, left-moving, or right-moving animation |
+| Blocked | The agent reported that it needs user input or action, such as a permission request | Waiting animation and attention treatment |
+| May need attention | Fallback detection sees an open agent without recent activity and cannot tell whether it finished or needs the user | Waving animation and attention treatment |
+| Finished | The agent reported normal completion or stopped without reporting an error | Review animation; attention treatment only while the user is away |
+| Error | The agent reported a failure | Error animation and attention treatment |
+
+If OmaPets cannot distinguish completion from blockage, it favors attention and
+uses May need attention. A possible false alert is preferable to missing an
+agent that requires the user.
 
 The user shall be able to hover over the pet to see the detected agent, when
 one is known, and the current state. A detail may also be shown when the state
@@ -74,11 +79,15 @@ detail is not part of the dependable current experience.
 
 ### Attention behavior
 
-Waiting and error states shall trigger the attention treatment. While this
-treatment is active:
+Blocked, May need attention, and Error shall trigger the attention treatment.
+Finished shall trigger it only when the agent finishes while Omarchy reports
+the computer idle, or when the computer becomes idle while an unacknowledged
+Finished state is shown, so that a user who stepped away learns the agent
+stopped. While this treatment is active:
 
 - The normal top-bar pet shall be replaced by a yellow warning indicator for
-  waiting or a red stop indicator for error.
+  Blocked or May need attention, a red stop indicator for Error, or a green
+  check indicator for Finished.
 - A magnified view of the pet shall be presented.
 - Clicking the magnified view shall dismiss it immediately.
 - If the computer is not idle, the magnified view shall dismiss automatically
@@ -92,7 +101,8 @@ treatment is active:
   active and use the three-second dismissal behavior.
 
 Dismissal of the magnified view shall not change the underlying agent state.
-Success shall not trigger the magnified attention view.
+Finished shall not trigger the magnified attention view while the user is
+active.
 
 ### Agent status reporting
 
@@ -110,19 +120,24 @@ from multiple agents is not displayed simultaneously.
 
 The `autoDetect` setting controls only heuristic inference. When it is
 disabled, saved hook updates for the current/default agent still reach the
-widget, and the pet reports idle when that agent has no recent hook status.
+widget, and the pet reports Inactive when that agent has no recent hook status.
 The recent-activity window applies only to heuristic inference.
 
-If no current/default agent is available, the pet shall report idle. For Codex
-and Claude Code, recent agent-session activity shall be treated as working. If
-the selected agent is running without recent detectable activity, fallback
-detection shall treat it as waiting. This last behavior is a known semantic
-limitation because it does not prove that user input is required.
+If no current/default agent is available, the pet shall report Inactive. For
+Codex and Claude Code, recent agent-session activity shall be treated as
+Working. If the selected agent is running without recent detectable activity,
+fallback detection shall report May need attention.
 
-A recent hook state shall take precedence over fallback inference when it
-belongs to the current/default agent. Successful completion is intentionally
-short-lived; other hook states may persist until replaced, expired, or ended
-by another lifecycle event.
+Hook lifecycle events map to states as follows: prompt submission and tool
+activity are Working; a permission request is Blocked; a stop event is
+Finished; a failure is Error; session start and end are Inactive.
+
+A saved hook state for the current/default agent shall take precedence over
+fallback inference until the agent's next hook event replaces it or it
+expires after four hours. In particular, a Finished turn shall not later be
+inferred as needing attention merely because the agent remains open. Hook
+states saved under the earlier names `idle`, `waiting`, and `success` shall be
+read as Inactive, Blocked, and Finished.
 
 The interactive hook setup currently offers these agent identifiers:
 
@@ -145,9 +160,9 @@ agent configuration. If ownership of a generated integration cannot be
 established, removal shall be refused rather than deleting a possibly
 user-owned file.
 
-OmaPets also accepts external status commands for idle, working, waiting,
-success, and error, along with commands to refresh the selected pet or the pet
-list. This is a supported integration option for custom agents and scripts.
+OmaPets also accepts external status commands for inactive, working, blocked,
+attention, finished, and error (with `idle`, `waiting`, and `success` kept as
+aliases), along with commands to refresh the selected pet or the pet list. This is a supported integration option for custom agents and scripts.
 Unknown hook lifecycle events shall make no state change and shall return
 without disrupting the coding agent.
 
@@ -272,9 +287,9 @@ represented as a successful result.
 The following inherited interactions remain available as testing conveniences
 rather than core product workflows:
 
-- Right-clicking the pet cycles through idle, working, waiting, success, and
-  error and requests a five-second override.
-- Middle-clicking the pet requests a two-and-a-half-second success override.
+- Right-clicking the pet cycles through Inactive, Working, Blocked, May need
+  attention, Finished, and Error and requests a five-second override.
+- Middle-clicking the pet requests a two-and-a-half-second Finished override.
 
 These controls allow visual states to be checked without requiring a real
 agent lifecycle event. Currently, expiration only allows automatic detection
@@ -315,8 +330,14 @@ The following safeguards are part of expected product behavior:
 Given OmaPets is enabled in the top bar, when the current agent's state changes,
 then the pet shall use the animation associated with the detected state.
 
-Given the state is waiting or error, when the state is received, then OmaPets
-shall show its attention treatment in addition to representing the state.
+Given the state is Blocked, May need attention, or Error, when the state is
+received, then OmaPets shall show its attention treatment in addition to
+representing the state.
+
+Given the user is active, when the agent finishes, then the pet shall show
+Finished without magnifying. Given Omarchy reports the user idle, when the
+agent finishes, then OmaPets shall show the attention treatment until the
+user returns and it is dismissed.
 
 Given the attention treatment is visible while the computer is idle, when no
 user activity occurs and Omarchy idle status is available, then the magnified
@@ -372,10 +393,12 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
 
 - The product displays one persistent pet and follows only the current/default
   Omarchy agent. It does not display simultaneous agents independently.
-- Waiting has two possible meanings under current behavior: a confirmed
-  interaction request or an open agent with no recent detected activity.
-- An inactive open agent, a completed agent, and an agent blocked on the user
-  are not yet reliably distinguishable in every reporting path.
+- An agent that ends its turn by asking a question in plain text reports a
+  normal stop, so it shows as Finished rather than Blocked.
+- Agents whose hooks lack permission or error events (Crush, Pi, Oh My Pi)
+  cannot report Blocked or Error.
+- An agent that exits without a session-end event keeps its last hook state
+  until the four-hour expiry.
 - Reason-level status detail is not consistently carried from agent hooks to
   the visible tooltip.
 - Diagnostic previews do not restore themselves when automatic detection is
@@ -404,26 +427,6 @@ criteria have been verified.
 This milestone makes the current status experience dependable and establishes
 the status foundation needed by multi-pet behavior.
 
-#### Distinguish status meanings
-
-The future status model shall distinguish:
-
-- **Inactive:** the agent session is open but is not currently progressing and
-  is not known to require user input; do not magnify.
-- **Working:** the agent is actively progressing toward its goal; do not
-  magnify.
-- **Blocked:** the agent has an active, unfinished goal and has stopped because
-  progress requires user input or action; magnify.
-- **May need attention:** the agent has stopped but OmaPets cannot determine
-  whether it finished or requires the user; magnify.
-- **Finished:** the agent reported normal completion or stopped without
-  reporting an error; do not magnify.
-- **Error:** the agent reported a failure; magnify.
-
-If OmaPets cannot distinguish completion from blockage, it shall favor
-attention and use **May need attention**. A possible false alert is preferable
-to missing an agent that requires the user.
-
 #### Fall back when a selected pet cannot load
 
 - If the selected pet is invalid, missing, or cannot be converted, OmaPets
@@ -437,7 +440,7 @@ to missing an agent that requires the user.
 #### Make diagnostic previews reliably temporary
 
 - A right-click state preview shall last five seconds.
-- A middle-click success preview shall last two-and-a-half seconds.
+- A middle-click Finished preview shall last two-and-a-half seconds.
 - When a preview ends, OmaPets shall restore the current detected state.
 - If automatic detection is disabled, OmaPets shall restore the state shown
   before the preview.
@@ -634,7 +637,8 @@ For the current product:
 
 - During ordinary use, the primary user can identify the current agent's state
   with a quick glance at the top bar.
-- Waiting and error conditions attract attention after the user has been away
+- Blocked, may-need-attention, and error conditions attract attention after the
+  user has been away
   without remaining needlessly magnified during active use.
 - Pet selection, installation, and hook setup can be completed through the pet
   panel without requiring the user to discover undocumented commands.
