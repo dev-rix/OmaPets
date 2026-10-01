@@ -414,7 +414,8 @@ BarWidget {
   Process {
     id: detector
     running: false
-    command: [root.filePath(Qt.resolvedUrl("bin/detect-agent")), String(root.activeWindowSec), root.home]
+    command: [root.filePath(Qt.resolvedUrl("bin/detect-agent")), String(root.activeWindowSec), root.home,
+      root.autoDetect ? "auto" : "hooks"]
 
     stdout: StdioCollector {
       waitForEnd: true
@@ -424,7 +425,7 @@ BarWidget {
 
   Timer {
     interval: 2000
-    running: root.autoDetect
+    running: true
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!detector.running) detector.running = true

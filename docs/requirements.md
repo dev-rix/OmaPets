@@ -98,20 +98,20 @@ Success shall not trigger the magnified attention view.
 
 OmaPets currently supports two levels of status reporting:
 
-1. Automatic detection, enabled by default, checks saved hook status and
-   provides a fallback based on the current Omarchy agent, recent activity,
-   and whether its process is running.
-2. Optional agent hooks provide lifecycle-based status updates where an agent
-   supports them.
+1. Optional agent hooks provide lifecycle-based status updates where an agent
+   supports them. Each agent type keeps its own saved status, so one agent's
+   event does not replace another agent's latest status.
+2. Automatic detection, enabled by default, adds a fallback based on the
+   current Omarchy agent, recent activity, and whether its process is running.
 
-Automatic detection shall periodically reassess the current/default Omarchy
+OmaPets shall periodically reassess the current/default Omarchy
 agent. In the current product, one pet represents only that agent; activity
 from multiple agents is not displayed simultaneously.
 
-The current `autoDetect` setting controls the entire recurring status check.
-Disabling it therefore stops both heuristic inference and the widget's reading
-of saved hook updates. This coupling is a known limitation and is scheduled to
-change in the implementation backlog.
+The `autoDetect` setting controls only heuristic inference. When it is
+disabled, saved hook updates for the current/default agent still reach the
+widget, and the pet reports idle when that agent has no recent hook status.
+The recent-activity window applies only to heuristic inference.
 
 If no current/default agent is available, the pet shall report idle. For Codex
 and Claude Code, recent agent-session activity shall be treated as working. If
@@ -364,11 +364,6 @@ removal is attempted, then OmaPets shall refuse to delete it and report why.
 
 - The product displays one persistent pet and follows only the current/default
   Omarchy agent. It does not display simultaneous agents independently.
-- All agent hooks currently write to one shared latest-status record. An event
-  from one agent can replace the saved event from another agent before the
-  current/default-agent filter is applied.
-- Disabling automatic detection also prevents saved hook updates from reaching
-  the widget.
 - Waiting has two possible meanings under current behavior: a confirmed
   interaction request or an open agent with no recent detected activity.
 - An inactive open agent, a completed agent, and an agent blocked on the user

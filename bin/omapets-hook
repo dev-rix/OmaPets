@@ -10,6 +10,9 @@ case "$event" in
   *) exit 0 ;;
 esac
 
+# Each agent type keeps its own status file, so the name becomes a filename.
+[[ $agent =~ ^[a-z0-9][a-z0-9_-]*$ ]] || exit 0
+
 payload=$(cat)
 case "$event" in
   prompt|tool-start|tool-end) state="working" ;;
@@ -25,8 +28,8 @@ detail=$(printf '%s' "$payload" | jq -r '
 ' 2>/dev/null || true)
 
 state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
-state_dir="$state_home/omarchy/omapets"
-state_file="$state_dir/status.json"
+state_dir="$state_home/omarchy/omapets/agents"
+state_file="$state_dir/$agent.json"
 mkdir -p "$state_dir"
 
 tmp_file="$state_file.$$"
