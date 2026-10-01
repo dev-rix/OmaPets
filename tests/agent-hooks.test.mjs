@@ -102,7 +102,7 @@ test("installs and uninstalls every managed agent integration", async () => {
 test("writes activity state with owner-only permissions", async () => {
   const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
   const stateHome = join(root, "state")
-  const result = spawnSync(hook, ["working", "codex"], {
+  const result = spawnSync(hook, ["tool-start", "codex"], {
     env: { ...process.env, HOME: root, XDG_STATE_HOME: stateHome },
     input: "{}\n",
     encoding: "utf8",
@@ -111,6 +111,23 @@ test("writes activity state with owner-only permissions", async () => {
   assert.equal(result.status, 0, result.stderr)
   const state = join(stateHome, "omarchy/omapets/status.json")
   assert.equal((await lstat(state)).mode & 0o777, 0o600)
+  const saved = JSON.parse(await readFile(state, "utf8"))
+  assert.equal(saved.agent, "codex")
+  assert.equal(saved.event, "tool-start")
+  assert.equal(saved.state, "working")
+})
+
+test("ignores unsupported hook events without writing state", async () => {
+  const root = await mkdtemp(join(tmpdir(), "omarpets-hooks-test-"))
+  const stateHome = join(root, "state")
+  const result = spawnSync(hook, ["working", "codex"], {
+    env: { ...process.env, HOME: root, XDG_STATE_HOME: stateHome },
+    input: "{}\n",
+    encoding: "utf8",
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(await exists(join(stateHome, "omarchy/omapets/status.json")), false)
 })
 
 test("refuses to remove a generated integration without an ownership signature", async () => {
